@@ -118,27 +118,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const deleteFolder = useCallback((folderId: string) => {
-    // Collect all folder IDs to delete (the folder itself and all its descendants)
     let allFolderIdsToDelete: string[] = [folderId];
     let currentParentIds = [folderId];
     
+    // Collect all descendant folder IDs
+    // Note: `folders` here is the state from the closure, which is updated via dependencies.
     while (currentParentIds.length > 0) {
-      const children = folders.filter(f => currentParentIds.includes(f.parentId!));
+      const children = folders.filter(f => f.parentId !== null && currentParentIds.includes(f.parentId));
       const childIds = children.map(c => c.id);
       if (childIds.length === 0) break;
       allFolderIdsToDelete = [...allFolderIdsToDelete, ...childIds];
       currentParentIds = childIds;
     }
 
-    // Delete all identified folders
-    setFolders(prev => prev.filter(f => !allFolderIdsToDelete.includes(f.id)));
-    // Delete all files within these folders
-    setFiles(prev => prev.filter(f => !allFolderIdsToDelete.includes(f.folderId!)));
+    setFolders(prevFolders => prevFolders.filter(f => !allFolderIdsToDelete.includes(f.id)));
+    
+    setFiles(prevFiles => prevFiles.filter(f => {
+      if (f.folderId === null) { // Always keep root files
+        return true;
+      }
+      // For non-root files, keep them only if their folder is NOT being deleted.
+      return !allFolderIdsToDelete.includes(f.folderId); 
+    }));
 
-    if (currentFolderId === folderId || allFolderIdsToDelete.includes(currentFolderId!)) {
-      setCurrentFolderIdInternal(folders.find(f => f.id === folderId)?.parentId || null);
+    // If the currently viewed folder (or one of its children) was deleted, navigate to its parent or home.
+    if (currentFolderId === folderId || (currentFolderId !== null && allFolderIdsToDelete.includes(currentFolderId))) {
+      // `folders` in `find` refers to the state before this `deleteFolder` function was called (due to useCallback dependency)
+      const originalFolder = folders.find(f => f.id === folderId); 
+      setCurrentFolderIdInternal(originalFolder?.parentId || null);
     }
-  }, [folders, currentFolderId]);
+  }, [folders, currentFolderId, setFolders, setFiles, setCurrentFolderIdInternal]);
 
 
   const setCurrentFolderId = useCallback((folderId: string | null) => {
@@ -183,6 +192,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     }
     if (file.type === 'image' || file.type === 'document') {
+        // For placeholder images/documents, content is not the actual encrypted data but a URL/string
+        // If it was intended to be encrypted, encryptedContent should hold it.
+        // This branch handles viewing the placeholder content if not truly encrypted.
         return file.content; 
     }
     return "[Encrypted - Content unavailable]";
