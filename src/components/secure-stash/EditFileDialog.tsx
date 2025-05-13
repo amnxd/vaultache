@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pencil, Sparkles, Loader2, AlertTriangle } from 'lucide-react';
+import { Pencil, Sparkles, Loader2, AlertTriangle, KeyRound, Unlock, Lock } from 'lucide-react';
 import { useAppContext } from '@/hooks/useAppContext';
 import type { FileType, FileItem } from '@/lib/types';
 import { TagInput } from './TagInput';
@@ -30,46 +30,89 @@ interface EditFileDialogProps {
 }
 
 export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialogProps) {
-  const { updateFile, encryptionKey, decryptFileContent, encryptFileContent } = useAppContext();
+  const { updateFile, decryptFileContent } = useAppContext();
   const { toast } = useToast();
 
   const [fileName, setFileName] = useState('');
   const [fileType, setFileType] = useState<FileType>('text');
-  const [fileContent, setFileContent] = useState('');
+  const [fileContent, setFileContent] = useState(''); // This will hold plaintext content for editing
   const [tags, setTags] = useState<string[]>([]);
-  const [isEncrypted, setIsEncrypted] = useState(false);
+  const [isEncrypted, setIsEncrypted] = useState(false); // Target encryption state for saving
+  const [currentEncryptionPassword, setCurrentEncryptionPassword] = useState(''); // For decrypting existing or setting new
+  
+  const [isContentDecrypted, setIsContentDecrypted] = useState(false);
+  const [decryptionError, setDecryptionError] = useState<string | null>(null);
+
   const [isSuggestingTags, setIsSuggestingTags] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
-  const initialDecryptedContent = useMemo(() => {
-    if (!fileToEdit) return '';
-    return decryptFileContent(fileToEdit);
-  }, [fileToEdit, decryptFileContent]);
+  const resetForm = useCallback(() => {
+    setFileName('');
+    setFileType('text');
+    setFileContent('');
+    setTags([]);
+    setIsEncrypted(false);
+    setCurrentEncryptionPassword('');
+    setIsContentDecrypted(false);
+    setDecryptionError(null);
+    setAiError(null);
+  }, []);
+  
+  const loadInitialFileState = useCallback(() => {
+    if (fileToEdit) {
+      setFileName(fileToEdit.name);
+      setFileType(fileToEdit.type);
+      setIsEncrypted(fileToEdit.isEncrypted);
+      setTags([...fileToEdit.tags]);
+      // setCurrentEncryptionPassword(fileToEdit.encryptionPassword || ''); // Don't prefill actual password
+
+      if (!fileToEdit.isEncrypted) {
+        setFileContent(fileToEdit.content);
+        setIsContentDecrypted(true);
+        setDecryptionError(null);
+      } else {
+        // File is encrypted, content needs decryption. Clear previous content.
+        setFileContent(''); 
+        setIsContentDecrypted(false);
+        // User will need to enter password to decrypt
+      }
+    }
+  }, [fileToEdit]);
+
 
   useEffect(() => {
     if (isOpen && fileToEdit) {
-      setFileName(fileToEdit.name);
-      setFileType(fileToEdit.type);
-      setFileContent(initialDecryptedContent);
-      setTags([...fileToEdit.tags]);
-      setIsEncrypted(fileToEdit.isEncrypted);
-      setAiError(null);
+      loadInitialFileState();
     } else if (!isOpen) {
-        // Reset on close to prevent stale data flashing
-        setFileName('');
-        setFileType('text');
-        setFileContent('');
-        setTags([]);
-        setIsEncrypted(false);
-        setAiError(null);
+      resetForm();
     }
-  }, [isOpen, fileToEdit, initialDecryptedContent]);
+  }, [isOpen, fileToEdit, loadInitialFileState, resetForm]);
+
+  const handleDecryptForEditing = () => {
+    if (!fileToEdit || !fileToEdit.isEncrypted) return;
+    if (!currentEncryptionPassword) {
+      setDecryptionError("Password is required to decrypt the file content.");
+      return;
+    }
+    const decrypted = decryptFileContent(fileToEdit, currentEncryptionPassword);
+    if (decrypted.startsWith("[Decryption Failed") || decrypted.startsWith("[Encrypted -")) {
+      setFileContent('');
+      setIsContentDecrypted(false);
+      setDecryptionError(decrypted); // Show specific error from decryptFileContent
+    } else {
+      setFileContent(decrypted);
+      setIsContentDecrypted(true);
+      setDecryptionError(null);
+      toast({ title: "Content decrypted for editing." });
+    }
+  };
+
 
   const handleSuggestTags = async () => {
-    if ((fileType !== 'text' && fileType !== 'link') || !fileContent.trim()) {
+     if (!isContentDecrypted || (fileType !== 'text' && fileType !== 'link') || !fileContent.trim()) {
       toast({
         title: "Cannot Suggest Tags",
-        description: "Tag suggestion is only available for text or link files with content.",
+        description: "Decrypt content first. Tag suggestion is available for decrypted text or link files with content.",
         variant: "destructive",
       });
       return;
@@ -107,48 +150,45 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
       return;
     }
 
-    let finalContentForUpdate = fileContent;
-    let finalEncryptedContent: string | undefined = undefined;
-
-    if (isEncrypted) {
-      if (!encryptionKey) {
-        toast({ title: "Encryption key not set.", description: "Cannot encrypt file without an encryption key.", variant: "destructive" });
-        return;
-      }
-      finalEncryptedContent = encryptFileContent(fileContent);
-      if (finalEncryptedContent === undefined) {
-         toast({ title: "Encryption Failed", description: "Could not encrypt the file content.", variant: "destructive" });
-         return;
-      }
-      finalContentForUpdate = ""; // Clear raw content if encrypted
+    if (isEncrypted && !currentEncryptionPassword.trim()) {
+      toast({ title: "Password is required to save as encrypted.", variant: "destructive" });
+      return;
     }
     
-    // For image/doc placeholders, content is just the URL/placeholder text.
-    // If type changed from/to image/doc, this needs more robust handling.
-    // For this version, we assume type doesn't change or if it does, content is appropriate.
-    if (fileType === 'image' && !isEncrypted) {
-      // If image, content is URL. Potentially update if user changes it, though UI doesn't allow this explicitly yet.
-      // This just ensures if it's an image and not encrypted, its content (URL) is saved.
-      // If it becomes encrypted, URL is encrypted.
-    } else if (fileType === 'document' && !isEncrypted) {
-      // Similar for document.
+    if (fileToEdit.isEncrypted && !isContentDecrypted && isEncrypted) {
+        // If was encrypted, not decrypted, and still trying to save as encrypted WITHOUT providing a new password for possibly new content.
+        // This state means user is trying to save an encrypted file (possibly with new name/tags) without viewing/changing its content or password.
+        // Or, if user changed to encrypted state and provided a password for new content.
+        if(!currentEncryptionPassword && fileToEdit.encryptionPassword) {
+            // Trying to save an old encrypted file without re-entering its password or providing a new one.
+            // This case is tricky: if content was never decrypted, we can't re-encrypt it with a *new* password without the old one.
+            // For simplicity: if user wants to keep it encrypted and didn't decrypt, we assume no content change.
+            // If they *did* change to `isEncrypted=true` from false, they *must* supply a password.
+        }
     }
 
-    const updatedFileData: Partial<Omit<FileItem, 'id' | 'createdAt' | 'folderId'>> = {
+
+    // Logic for preparing updates
+    const updatesForAppCtx: Partial<Omit<FileItem, 'id' | 'createdAt' | 'folderId'>> & { newContent: string, newEncryptionPassword?: string, newIsEncrypted: boolean } = {
       name: fileName.trim(),
-      // type: fileType, // Type editing disabled for simplicity
-      content: finalContentForUpdate,
-      encryptedContent: finalEncryptedContent,
       tags,
-      isEncrypted,
+      newContent: fileContent, // Always pass the current plaintext content from the form
+      newIsEncrypted: isEncrypted, // Target encryption state
     };
 
-    updateFile(fileToEdit.id, updatedFileData);
-    toast({ title: `File "${updatedFileData.name}" updated successfully.`});
+    if (isEncrypted) {
+      updatesForAppCtx.newEncryptionPassword = currentEncryptionPassword;
+    }
+    
+    updateFile(fileToEdit.id, updatesForAppCtx);
+    toast({ title: `File "${updatesForAppCtx.name}" updated successfully.`});
     setIsOpen(false);
   };
 
-  const canSuggestTags = (fileType === 'text' || fileType === 'link') && fileContent.trim().length > 0;
+  const canSuggestTags = isContentDecrypted && (fileType === 'text' || fileType === 'link') && fileContent.trim().length > 0;
+  const showContentFields = isContentDecrypted || !fileToEdit?.isEncrypted;
+  const requirePasswordForDecryption = fileToEdit?.isEncrypted && !isContentDecrypted;
+
 
   if (!fileToEdit) return null;
 
@@ -161,9 +201,35 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
             Edit File: {fileToEdit.name}
           </DialogTitle>
           <DialogDescription>
-            Update the details of your file. Encryption status can be changed.
+            Update the details of your file. Provide password if changing encryption.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Password input for decryption if needed */}
+        {requirePasswordForDecryption && (
+          <div className="my-4 p-4 border border-dashed rounded-md space-y-2 bg-secondary/50">
+            <Label htmlFor="decryptPassword">Enter Password to View/Edit Content</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="decryptPassword"
+                type="password"
+                value={currentEncryptionPassword}
+                onChange={(e) => {
+                  setCurrentEncryptionPassword(e.target.value);
+                  if (decryptionError) setDecryptionError(null); // Clear error on new input
+                }}
+                placeholder="Password to decrypt"
+                className="flex-grow"
+              />
+              <Button onClick={handleDecryptForEditing} variant="outline" size="sm">
+                <Unlock className="mr-2 h-4 w-4" /> Decrypt
+              </Button>
+            </div>
+            {decryptionError && <p className="text-sm text-destructive mt-1">{decryptionError}</p>}
+             <p className="text-xs text-muted-foreground">Original content is encrypted. Enter password to view and edit.</p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto space-y-4 p-1 pr-3">
           <div>
             <Label htmlFor="editFileName">File Name</Label>
@@ -178,114 +244,124 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
 
           <div>
             <Label htmlFor="editFileType">File Type</Label>
-            <Select value={fileType} onValueChange={(value) => setFileType(value as FileType)} disabled> {/* Type editing disabled */}
-              <SelectTrigger id="editFileType" className="w-full mt-1">
-                <SelectValue />
-              </SelectTrigger>
+            <Select value={fileType} onValueChange={(value) => setFileType(value as FileType)} disabled>
+              <SelectTrigger id="editFileType" className="w-full mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="text">Text</SelectItem>
-                <SelectItem value="image">Image</SelectItem>
-                <SelectItem value="document">Document</SelectItem>
-                <SelectItem value="link">Link</SelectItem>
+                <SelectItem value="text">Text</SelectItem><SelectItem value="image">Image</SelectItem>
+                <SelectItem value="document">Document</SelectItem><SelectItem value="link">Link</SelectItem>
               </SelectContent>
             </Select>
-             <p className="text-xs text-muted-foreground mt-1">File type cannot be changed after creation.</p>
+            <p className="text-xs text-muted-foreground mt-1">File type cannot be changed after creation.</p>
           </div>
-
-          {(fileType === 'text' || fileType === 'link') && (
-            <div>
-              <Label htmlFor="editFileContent">{fileType === 'text' ? 'Content' : 'Link URL'}</Label>
-              <Textarea
-                id="editFileContent"
-                value={fileContent}
-                onChange={(e) => setFileContent(e.target.value)}
-                placeholder={fileType === 'text' ? 'Enter your text here...' : 'https://example.com'}
-                rows={fileType === 'text' ? 6 : 2}
-                className="mt-1"
-              />
-            </div>
+          
+          {/* Content Fields - shown if not encrypted OR if decrypted */}
+          {showContentFields && (
+            <>
+              {(fileType === 'text' || fileType === 'link') && (
+                <div>
+                  <Label htmlFor="editFileContent">{fileType === 'text' ? 'Content' : 'Link URL'}</Label>
+                  <Textarea id="editFileContent" value={fileContent} onChange={(e) => setFileContent(e.target.value)}
+                    placeholder={fileType === 'text' ? 'Enter your text here...' : 'https://example.com'}
+                    rows={fileType === 'text' ? 6 : 2} className="mt-1" />
+                </div>
+              )}
+              {fileType === 'image' && (
+                <div>
+                  <Label htmlFor="editFileContent">Image URL</Label>
+                  <Input id="editFileContent" value={fileContent} onChange={(e) => setFileContent(e.target.value)}
+                    placeholder="https://picsum.photos/seed/example/400/300" className="mt-1" />
+                </div>
+              )}
+              {fileType === 'document' && (
+                <div>
+                  <Label htmlFor="editFileContent">Document Content (Placeholder)</Label>
+                  <Textarea id="editFileContent" value={fileContent} onChange={(e) => setFileContent(e.target.value)}
+                    placeholder="Placeholder document content..." rows={4} className="mt-1" />
+                </div>
+              )}
+            </>
           )}
-           {fileType === 'image' && (
-             <div>
-                <Label htmlFor="editFileContent">Image URL</Label>
-                <Input
-                    id="editFileContent"
-                    value={fileContent}
-                    onChange={(e) => setFileContent(e.target.value)}
-                    placeholder="https://picsum.photos/seed/example/400/300"
-                    className="mt-1"
-                    disabled={isEncrypted && !encryptionKey} // can't edit if encrypted and no key to re-encrypt
-                />
-                <p className="text-sm text-muted-foreground p-1 mt-1">
-                    For "Image" type, content is a URL.
-                </p>
-             </div>
-           )}
-           {fileType === 'document' && (
-             <div>
-                <Label htmlFor="editFileContent">Document Content (Placeholder)</Label>
-                <Textarea
-                    id="editFileContent"
-                    value={fileContent}
-                    onChange={(e) => setFileContent(e.target.value)}
-                    placeholder="Placeholder document content..."
-                    rows={4}
-                    className="mt-1"
-                    disabled={isEncrypted && !encryptionKey}
-                />
-                <p className="text-sm text-muted-foreground p-1 mt-1">
-                    For "Document" type, content is placeholder text.
-                </p>
-             </div>
+           {!showContentFields && fileToEdit.isEncrypted && (
+            <div className="p-3 my-2 border rounded-md bg-muted/20 text-sm text-muted-foreground flex items-center gap-2">
+                <Lock className="h-4 w-4"/> Content is encrypted. Decrypt above to edit.
+            </div>
            )}
 
 
           <TagInput tags={tags} setTags={setTags} />
           
           {canSuggestTags && (
-             <Button
-              type="button"
-              variant="outline"
-              onClick={handleSuggestTags}
-              disabled={isSuggestingTags || !fileContent.trim()}
-              className="w-full mt-2"
-            >
-              {isSuggestingTags ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="mr-2 h-4 w-4" />
-              )}
+             <Button type="button" variant="outline" onClick={handleSuggestTags}
+              disabled={isSuggestingTags || !fileContent.trim()} className="w-full mt-2">
+              {isSuggestingTags ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
               Suggest Tags with AI
             </Button>
           )}
           {aiError && <p className="text-sm text-destructive flex items-center"><AlertTriangle className="h-4 w-4 mr-1"/> {aiError}</p>}
 
+          {/* Encryption Checkbox and Password Field for Saving */}
+          <div className="space-y-2 mt-4 p-3 border rounded-md bg-muted/10">
+            <div className="flex items-center space-x-2">
+                <Checkbox id="editIsEncrypted" checked={isEncrypted}
+                onCheckedChange={(checkedSt) => {
+                    const newCheckedState = Boolean(checkedSt);
+                    setIsEncrypted(newCheckedState);
+                    if (!newCheckedState) { // If unchecking encryption
+                        // setCurrentEncryptionPassword(''); // Optionally clear password if user unchecks
+                         if (fileToEdit.isEncrypted && !isContentDecrypted) {
+                           toast({title: "Decrypt Content First", description: "To save as unencrypted, please decrypt the content first using its original password.", variant:"destructive"});
+                           // Revert checkbox, as we can't unencrypt without decryption key
+                           setIsEncrypted(true);
+                           return;
+                         }
+                    } else if (newCheckedState && !currentEncryptionPassword && fileToEdit.isEncrypted && isContentDecrypted) {
+                        // If checking encryption, and was previously encrypted & decrypted, prompt for password again if not set
+                        // Or assume user will fill the "Encryption Password for Saving" field
+                    }
+                }}
+                />
+                <Label htmlFor="editIsEncrypted" className="text-sm font-medium">
+                Encrypt this file on save
+                </Label>
+            </div>
 
-          <div className="flex items-center space-x-2 mt-4">
-            <Checkbox
-              id="editIsEncrypted"
-              checked={isEncrypted}
-              onCheckedChange={(checked) => setIsEncrypted(Boolean(checked))}
-              disabled={!encryptionKey && !isEncrypted} // Disable checking if no key and not already encrypted, allow unchecking
-            />
-            <Label htmlFor="editIsEncrypted" className="text-sm font-medium">
-              Encrypt this file
-            </Label>
+            {isEncrypted && (
+                <div className="mt-2 space-y-1">
+                <Label htmlFor="saveEncryptionPassword">
+                    {fileToEdit.isEncrypted && isContentDecrypted ? "New or Existing Encryption Password" : "Encryption Password for Saving"}
+                </Label>
+                <div className="relative">
+                    <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                    id="saveEncryptionPassword"
+                    type="password"
+                    value={currentEncryptionPassword}
+                    onChange={(e) => setCurrentEncryptionPassword(e.target.value)}
+                    placeholder="Enter password for encryption"
+                    required={isEncrypted}
+                    className="pl-10"
+                    />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                    {fileToEdit.isEncrypted && isContentDecrypted ? "Enter original password to re-encrypt, or a new one to change it." : "This password will be required to view/edit."}
+                </p>
+                </div>
+            )}
+            {!isEncrypted && fileToEdit.isEncrypted && !isContentDecrypted && (
+                 <p className="text-xs text-destructive mt-1">
+                    To save as unencrypted, you must first decrypt the content using its password.
+                </p>
+            )}
           </div>
-          {!encryptionKey && isEncrypted && ( // Show warning if file is set to be encrypted but no key is available.
-            <p className="text-xs text-destructive mt-1">
-              Encryption key is not set. File cannot be saved as encrypted. Please set key or uncheck encryption.
-            </p>
-          )}
 
         </form>
         <DialogFooter className="mt-auto pt-4 border-t">
-          <DialogClose asChild>
-            <Button type="button" variant="outline">
-              Cancel
-            </Button>
-          </DialogClose>
-          <Button type="submit" onClick={handleSubmit} disabled={isEncrypted && !encryptionKey}>Save Changes</Button>
+          <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+          <Button type="submit" onClick={handleSubmit} 
+            disabled={ (isEncrypted && !currentEncryptionPassword.trim()) || (fileToEdit.isEncrypted && !isContentDecrypted && !isEncrypted) }
+          >
+            Save Changes
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

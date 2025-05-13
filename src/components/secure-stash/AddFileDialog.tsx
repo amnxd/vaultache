@@ -16,11 +16,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FilePlus2, Sparkles, Loader2, AlertTriangle } from 'lucide-react';
+import { FilePlus2, Sparkles, Loader2, AlertTriangle, KeyRound } from 'lucide-react';
 import { useAppContext } from '@/hooks/useAppContext';
 import type { FileType, FileItem } from '@/lib/types';
 import { TagInput } from './TagInput';
-import { suggestTags } from '@/ai/flows/suggest-tags'; // Assuming path is correct
+import { suggestTags } from '@/ai/flows/suggest-tags'; 
 import { useToast } from '@/hooks/use-toast';
 
 interface AddFileDialogProps {
@@ -29,28 +29,29 @@ interface AddFileDialogProps {
 }
 
 export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
-  const { addFile, currentFolderId, encryptionKey } = useAppContext();
+  const { addFile, currentFolderId } = useAppContext();
   const { toast } = useToast();
 
   const [fileName, setFileName] = useState('');
   const [fileType, setFileType] = useState<FileType>('text');
   const [fileContent, setFileContent] = useState('');
   const [tags, setTags] = useState<string[]>([]);
-  const [isEncrypted, setIsEncrypted] = useState(!!encryptionKey);
+  const [isEncrypted, setIsEncrypted] = useState(false);
+  const [encryptionPassword, setEncryptionPassword] = useState('');
   const [isSuggestingTags, setIsSuggestingTags] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      // Reset form when dialog opens
       setFileName('');
       setFileType('text');
       setFileContent('');
       setTags([]);
-      setIsEncrypted(!!encryptionKey);
+      setIsEncrypted(false);
+      setEncryptionPassword('');
       setAiError(null);
     }
-  }, [isOpen, encryptionKey]);
+  }, [isOpen]);
 
   const handleSuggestTags = async () => {
     if ((fileType !== 'text' && fileType !== 'link') || !fileContent.trim()) {
@@ -92,22 +93,26 @@ export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
       toast({ title: "File name is required.", variant: "destructive" });
       return;
     }
+    if (isEncrypted && !encryptionPassword.trim()) {
+      toast({ title: "Password is required for encrypted files.", variant: "destructive"});
+      return;
+    }
     
     let finalContent = fileContent;
     if (fileType === 'image') {
-      finalContent = `https://picsum.photos/seed/${Date.now()}/400/300`; // Placeholder image
+      finalContent = `https://picsum.photos/seed/${Date.now()}/400/300`; 
     } else if (fileType === 'document') {
       finalContent = `This is a placeholder for the document named "${fileName}". Actual content not stored in this demo.`;
     }
 
-    const newFileData: Omit<FileItem, 'id' | 'createdAt' | 'updatedAt' | 'encryptedContent'> = {
+    const newFileData: Omit<FileItem, 'id' | 'createdAt' | 'updatedAt' | 'encryptedContent'> & { encryptionPassword?: string } = {
       name: fileName.trim(),
       type: fileType,
       content: finalContent,
       tags,
       folderId: currentFolderId,
       isEncrypted,
-      // fileSize could be calculated for text, but for simplicity we omit it
+      encryptionPassword: isEncrypted ? encryptionPassword : undefined,
     };
     addFile(newFileData);
     toast({ title: `File "${newFileData.name}" added successfully.`});
@@ -180,7 +185,6 @@ export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
             </p>
            )}
 
-
           <TagInput tags={tags} setTags={setTags} />
           
           {canSuggestTags && (
@@ -201,22 +205,37 @@ export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
           )}
           {aiError && <p className="text-sm text-destructive flex items-center"><AlertTriangle className="h-4 w-4 mr-1"/> {aiError}</p>}
 
-
           <div className="flex items-center space-x-2 mt-4">
             <Checkbox
               id="isEncrypted"
               checked={isEncrypted}
-              onCheckedChange={(checked) => setIsEncrypted(Boolean(checked))}
-              disabled={!encryptionKey}
+              onCheckedChange={(checked) => {
+                setIsEncrypted(Boolean(checked));
+                if (!checked) setEncryptionPassword(''); // Clear password if unchecking
+              }}
             />
             <Label htmlFor="isEncrypted" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
               Encrypt this file
             </Label>
           </div>
-          {!encryptionKey && isEncrypted && (
-            <p className="text-xs text-destructive mt-1">
-              Encryption key is not set. Please set it in the header to encrypt files.
-            </p>
+
+          {isEncrypted && (
+            <div className="mt-2 space-y-1">
+              <Label htmlFor="encryptionPassword">Encryption Password</Label>
+              <div className="relative">
+                <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="encryptionPassword"
+                  type="password"
+                  value={encryptionPassword}
+                  onChange={(e) => setEncryptionPassword(e.target.value)}
+                  placeholder="Enter password for this file"
+                  required={isEncrypted}
+                  className="pl-10"
+                />
+              </div>
+               <p className="text-xs text-muted-foreground">This password will be required to view or edit the file.</p>
+            </div>
           )}
 
         </form>

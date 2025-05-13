@@ -6,7 +6,7 @@ import { useAppContext } from '@/hooks/useAppContext';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { FileText, FileImage, FileArchive, Link as LinkIcon, Eye, Trash2, Lock, Unlock, Tag, Pencil } from 'lucide-react';
+import { FileText, FileImage, FileArchive, Link as LinkIcon, Eye, Trash2, Lock, Tag, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -34,14 +34,14 @@ const FileTypeIcon: React.FC<{ type: FileItemType['type'], className?: string }>
 };
 
 export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps) {
-  const { deleteFile, encryptionKey } = useAppContext();
+  const { deleteFile } = useAppContext();
   const { toast } = useToast();
 
   const handleDelete = () => {
     if (file.isEncrypted) {
       toast({
         title: "Action Prohibited",
-        description: "Encrypted files cannot be deleted directly.",
+        description: "Encrypted files cannot be deleted directly. Please decrypt or change encryption status first via Edit.",
         variant: "destructive",
       });
       return;
@@ -63,12 +63,12 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
             <span className="truncate" title={file.name}>{file.name}</span>
           </div>
           {file.isEncrypted && (
-            encryptionKey ? <Lock className="h-4 w-4 text-green-500 shrink-0" title="Encrypted" /> : <Unlock className="h-4 w-4 text-orange-500 shrink-0" title="Encrypted (Key Missing)" />
+            <Lock className="h-4 w-4 text-orange-500 shrink-0" title="Encrypted" />
           )}
         </CardTitle>
       </CardHeader>
       <CardContent className="p-3 flex-grow min-h-[60px]"> 
-        {file.type === 'image' && file.content && !file.isEncrypted && ( // Only show direct image if not encrypted
+        {file.type === 'image' && file.content && !file.isEncrypted && (
           <img 
             src={file.content} 
             alt={file.name} 
@@ -80,7 +80,7 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
         {file.tags.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1 items-center">
              <Tag className="h-3 w-3 text-muted-foreground mr-1 shrink-0"/>
-            {file.tags.slice(0, 2).map(tag => ( // Show 2 tags max
+            {file.tags.slice(0, 2).map(tag => ( 
               <Badge key={tag} variant="secondary" className="text-xs px-1.5 py-0.5">{tag}</Badge>
             ))}
             {file.tags.length > 2 && <Badge variant="outline" className="text-xs px-1 py-0.5">+{file.tags.length - 2}</Badge>}

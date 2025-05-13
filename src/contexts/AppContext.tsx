@@ -8,21 +8,19 @@ import { encrypt as encryptText, decrypt as decryptText } from '@/lib/crypto';
 interface AppContextType {
   folders: FolderItem[];
   files: FileItem[];
-  encryptionKey: string;
   currentFolderId: string | null;
   addFolder: (name: string, parentId: string | null) => void;
-  addFile: (fileData: Omit<FileItem, 'id' | 'createdAt' | 'updatedAt' | 'encryptedContent'>) => void;
-  updateFile: (fileId: string, updates: Partial<Omit<FileItem, 'id' | 'createdAt' | 'folderId'>>) => void;
+  addFile: (fileData: Omit<FileItem, 'id' | 'createdAt' | 'updatedAt' | 'encryptedContent'> & { encryptionPassword?: string }) => void;
+  updateFile: (fileId: string, updates: Partial<Omit<FileItem, 'id' | 'createdAt' | 'folderId' | 'encryptedContent' | 'encryptionPassword'>> & { newContent?: string, newEncryptionPassword?: string, newIsEncrypted?: boolean }) => void;
   updateFileTags: (fileId: string, tags: string[]) => void;
   deleteFile: (fileId: string) => void;
   deleteFolder: (folderId: string) => void;
-  setEncryptionKey: (key: string) => void;
   setCurrentFolderId: (folderId: string | null) => void;
   getFilesForCurrentFolder: () => FileItem[];
   getSubfoldersForCurrentFolder: () => FolderItem[];
   getFolderPath: (folderId: string | null) => FolderItem[];
-  decryptFileContent: (file: FileItem) => string;
-  encryptFileContent: (content: string) => string | undefined;
+  decryptFileContent: (file: FileItem, passwordAttempt: string) => string;
+  // encryptFileContent is now mostly internal to addFile/updateFile or called directly with a key
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -30,24 +28,19 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [files, setFiles] = useState<FileItem[]>([]);
-  const [encryptionKey, setEncryptionKeyInternal] = useState<string>('');
   const [currentFolderId, setCurrentFolderIdInternal] = useState<string | null>(null);
 
-  // Load initial data from localStorage if available (for persistence demo)
   useEffect(() => {
     try {
       const storedFolders = localStorage.getItem('secureStashFolders');
       if (storedFolders) setFolders(JSON.parse(storedFolders));
       const storedFiles = localStorage.getItem('secureStashFiles');
       if (storedFiles) setFiles(JSON.parse(storedFiles));
-       const storedKey = localStorage.getItem('secureStashKey');
-       if (storedKey) setEncryptionKeyInternal(storedKey);
     } catch (error) {
       console.error("Failed to load data from localStorage", error);
     }
   }, []);
 
-  // Save data to localStorage on change
   useEffect(() => {
     try {
       localStorage.setItem('secureStashFolders', JSON.stringify(folders));
@@ -64,16 +57,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [files]);
 
-  const setEncryptionKey = useCallback((key: string) => {
-    setEncryptionKeyInternal(key);
-    try {
-      localStorage.setItem('secureStashKey', key);
-    } catch (error) {
-      console.error("Failed to save encryption key to localStorage", error);
-    }
-  }, []);
-
-
   const addFolder = useCallback((name: string, parentId: string | null) => {
     const newFolder: FolderItem = {
       id: crypto.randomUUID(),
@@ -85,27 +68,68 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setFolders((prev) => [...prev, newFolder]);
   }, []);
 
-  const addFile = useCallback((fileData: Omit<FileItem, 'id' | 'createdAt' | 'updatedAt' | 'encryptedContent'>) => {
+  const addFile = useCallback((fileData: Omit<FileItem, 'id' | 'createdAt' | 'updatedAt' | 'encryptedContent'> & { encryptionPassword?: string }) => {
     const now = Date.now();
+    const { encryptionPassword, ...restOfFileData } = fileData;
     
+    let encryptedContentVal: string | undefined = undefined;
+    let contentVal = restOfFileData.content;
+
+    if (restOfFileData.isEncrypted && encryptionPassword) {
+      encryptedContentVal = encryptText(restOfFileData.content, encryptionPassword);
+      contentVal = ""; // Clear raw content if encrypted
+    } else if (restOfFileData.isEncrypted && !encryptionPassword) {
+      // Handle case where isEncrypted is true but no password provided - perhaps treat as not encrypted or throw error
+      console.warn("File marked for encryption but no password provided. Storing as unencrypted.");
+      restOfFileData.isEncrypted = false;
+    }
+
     const newFile: FileItem = {
-      ...fileData,
+      ...restOfFileData,
       id: crypto.randomUUID(),
-      encryptedContent: fileData.isEncrypted && encryptionKey ? encryptText(fileData.content, encryptionKey) : undefined,
-      content: fileData.isEncrypted && encryptionKey ? "" : fileData.content, 
+      content: contentVal,
+      encryptedContent: encryptedContentVal,
+      encryptionPassword: restOfFileData.isEncrypted ? encryptionPassword : undefined,
       createdAt: now,
       updatedAt: now,
     };
     setFiles((prev) => [...prev, newFile]);
-  }, [encryptionKey]);
+  }, []);
   
-  const updateFile = useCallback((fileId: string, updates: Partial<Omit<FileItem, 'id' | 'createdAt' | 'folderId'>>) => {
+  const updateFile = useCallback((fileId: string, updates: Partial<Omit<FileItem, 'id' | 'createdAt' | 'folderId' | 'encryptedContent' | 'encryptionPassword'>> & { newContent?: string, newEncryptionPassword?: string, newIsEncrypted?: boolean }) => {
     setFiles(prevFiles =>
-      prevFiles.map(file =>
-        file.id === fileId
-          ? { ...file, ...updates, updatedAt: Date.now() }
-          : file
-      )
+      prevFiles.map(file => {
+        if (file.id !== fileId) return file;
+
+        const { newContent, newEncryptionPassword, newIsEncrypted, ...otherUpdates } = updates;
+        let updatedFile = { ...file, ...otherUpdates, updatedAt: Date.now() };
+
+        const isActuallyEncrypted = newIsEncrypted !== undefined ? newIsEncrypted : file.isEncrypted;
+        const contentToProcess = newContent !== undefined ? newContent : (isActuallyEncrypted ? "" : file.content); // If becoming encrypted, newContent is source. If staying unencrypted, newContent or old content.
+
+        if (isActuallyEncrypted) {
+          const keyToUse = newEncryptionPassword !== undefined ? newEncryptionPassword : file.encryptionPassword;
+          if (!keyToUse) {
+            console.error("Cannot encrypt file without a password during update.");
+            // Potentially revert isEncrypted or keep as is but without content
+             updatedFile.isEncrypted = false; // Revert to unencrypted if no key
+             updatedFile.content = contentToProcess;
+             updatedFile.encryptedContent = undefined;
+             updatedFile.encryptionPassword = undefined;
+          } else {
+            updatedFile.encryptedContent = encryptText(contentToProcess, keyToUse);
+            updatedFile.content = ""; // Clear raw content
+            updatedFile.isEncrypted = true;
+            updatedFile.encryptionPassword = keyToUse; // Store the key used
+          }
+        } else { // File is to be unencrypted
+          updatedFile.content = contentToProcess; // Should be plaintext already or from newContent
+          updatedFile.isEncrypted = false;
+          updatedFile.encryptedContent = undefined;
+          updatedFile.encryptionPassword = undefined;
+        }
+        return updatedFile;
+      })
     );
   }, []);
 
@@ -121,8 +145,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     let allFolderIdsToDelete: string[] = [folderId];
     let currentParentIds = [folderId];
     
-    // Collect all descendant folder IDs
-    // Note: `folders` here is the state from the closure, which is updated via dependencies.
     while (currentParentIds.length > 0) {
       const children = folders.filter(f => f.parentId !== null && currentParentIds.includes(f.parentId));
       const childIds = children.map(c => c.id);
@@ -134,20 +156,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setFolders(prevFolders => prevFolders.filter(f => !allFolderIdsToDelete.includes(f.id)));
     
     setFiles(prevFiles => prevFiles.filter(f => {
-      if (f.folderId === null) { // Always keep root files
+      if (f.folderId === null) {
         return true;
       }
-      // For non-root files, keep them only if their folder is NOT being deleted.
       return !allFolderIdsToDelete.includes(f.folderId); 
     }));
 
-    // If the currently viewed folder (or one of its children) was deleted, navigate to its parent or home.
     if (currentFolderId === folderId || (currentFolderId !== null && allFolderIdsToDelete.includes(currentFolderId))) {
-      // `folders` in `find` refers to the state before this `deleteFolder` function was called (due to useCallback dependency)
       const originalFolder = folders.find(f => f.id === folderId); 
       setCurrentFolderIdInternal(originalFolder?.parentId || null);
     }
-  }, [folders, currentFolderId, setFolders, setFiles, setCurrentFolderIdInternal]);
+  }, [folders, currentFolderId]);
 
 
   const setCurrentFolderId = useCallback((folderId: string | null) => {
@@ -177,44 +196,46 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return path;
   }, [folders]);
 
-  const decryptFileContent = useCallback((file: FileItem): string => {
+  const decryptFileContent = useCallback((file: FileItem, passwordAttempt: string): string => {
     if (!file.isEncrypted) {
       return file.content;
     }
-    if (file.isEncrypted && !encryptionKey) {
-      return "[Encrypted - Encryption key not provided]";
+    if (!passwordAttempt) {
+      return "[Encrypted - Password not provided for decryption]";
     }
-    if (file.isEncrypted && encryptionKey && file.encryptedContent) {
+    if (file.encryptedContent) {
       try {
-        return decryptText(file.encryptedContent, encryptionKey);
+        // In a real app, you'd compare passwordAttempt with a stored hash or use it to derive a key.
+        // For this demo, we're using the provided passwordAttempt directly if it matches file.encryptionPassword
+        // or if file.encryptionPassword wasn't stored but passwordAttempt is given.
+        // A better approach is to always require the passwordAttempt for decryption.
+        // The stored file.encryptionPassword is a simplification for this demo.
+        const keyToUse = file.encryptionPassword || passwordAttempt; // Fallback for older items. Ideally always passwordAttempt.
+        
+        // Simple direct comparison for demo; in real app, never store raw password.
+        // This check implies passwordAttempt should be the same as stored, which isn't ideal UX.
+        // Better: just try to decrypt with passwordAttempt.
+        // if (file.encryptionPassword && file.encryptionPassword !== passwordAttempt) {
+        //   return "[Decryption Failed - Incorrect password]";
+        // }
+
+        return decryptText(file.encryptedContent, passwordAttempt);
       } catch (e) {
-        return "[Decryption Failed - Invalid key or corrupt data]";
+        return "[Decryption Failed - Invalid password or corrupt data]";
       }
     }
+    // Fallback for image/document placeholders if they were marked encrypted but logic path is unclear
     if (file.type === 'image' || file.type === 'document') {
-        // For placeholder images/documents, content is not the actual encrypted data but a URL/string
-        // If it was intended to be encrypted, encryptedContent should hold it.
-        // This branch handles viewing the placeholder content if not truly encrypted.
         return file.content; 
     }
-    return "[Encrypted - Content unavailable]";
-  }, [encryptionKey]);
+    return "[Encrypted - Content unavailable or error in decryption logic]";
+  }, []);
 
-  const encryptFileContent = useCallback((content: string): string | undefined => {
-    if (!encryptionKey) return undefined; // Cannot encrypt without a key
-    try {
-      return encryptText(content, encryptionKey);
-    } catch (e) {
-      console.error("Encryption failed during explicit call:", e);
-      return undefined; // Or handle error as appropriate
-    }
-  }, [encryptionKey]);
 
   return (
     <AppContext.Provider value={{
       folders,
       files,
-      encryptionKey,
       currentFolderId,
       addFolder,
       addFile,
@@ -222,13 +243,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       updateFileTags,
       deleteFile,
       deleteFolder,
-      setEncryptionKey,
       setCurrentFolderId,
       getFilesForCurrentFolder,
       getSubfoldersForCurrentFolder,
       getFolderPath,
       decryptFileContent,
-      encryptFileContent,
     }}>
       {children}
     </AppContext.Provider>

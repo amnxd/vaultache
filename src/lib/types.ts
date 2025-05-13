@@ -7,6 +7,7 @@ export interface FileItem {
   type: FileType;
   content: string; // For text/link: actual content. For image: picsum URL. For document: placeholder text.
   encryptedContent?: string;
+  encryptionPassword?: string; // Optional password for per-file encryption
   tags: string[];
   folderId: string | null;
   createdAt: number;
@@ -22,3 +23,4 @@ export interface FolderItem {
   createdAt: number;
   updatedAt: number;
 }
+
