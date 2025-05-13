@@ -6,7 +6,7 @@ import { useAppContext } from '@/hooks/useAppContext';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { FileText, FileImage, FileArchive, Link as LinkIcon, Eye, Trash2, Lock, Tag, Pencil } from 'lucide-react';
+import { FileText, FileImage, FileArchive, Link as LinkIcon, Eye, Trash2, Lock, Tag, Pencil, Film } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -33,6 +33,8 @@ const FileTypeIcon: React.FC<{ type: FileItemType['type'], className?: string }>
       return <FileArchive className={commonClass} />; 
     case 'link':
       return <LinkIcon className={commonClass} />;
+    case 'video':
+      return <Film className={commonClass} />;
     default:
       return <FileText className={commonClass} />;
   }

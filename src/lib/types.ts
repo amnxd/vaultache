@@ -1,11 +1,11 @@
 
-export type FileType = 'text' | 'image' | 'document' | 'link';
+export type FileType = 'text' | 'image' | 'document' | 'link' | 'video';
 
 export interface FileItem {
   id: string;
   name: string;
   type: FileType;
-  content: string; // For text/link: actual content. For image: picsum URL. For document: placeholder text.
+  content: string; // For text/link: actual content. For image: picsum URL. For document/video: placeholder text.
   encryptedContent?: string;
   encryptionPassword?: string; // Optional password for per-file encryption
   tags: string[];

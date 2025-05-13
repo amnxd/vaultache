@@ -105,25 +105,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         let updatedFile = { ...file, ...otherUpdates, updatedAt: Date.now() };
 
         const isActuallyEncrypted = newIsEncrypted !== undefined ? newIsEncrypted : file.isEncrypted;
-        const contentToProcess = newContent !== undefined ? newContent : (isActuallyEncrypted ? "" : file.content); // If becoming encrypted, newContent is source. If staying unencrypted, newContent or old content.
+        const contentToProcess = newContent !== undefined ? newContent : (isActuallyEncrypted ? "" : file.content); 
 
         if (isActuallyEncrypted) {
           const keyToUse = newEncryptionPassword !== undefined ? newEncryptionPassword : file.encryptionPassword;
           if (!keyToUse) {
             console.error("Cannot encrypt file without a password during update.");
-            // Potentially revert isEncrypted or keep as is but without content
-             updatedFile.isEncrypted = false; // Revert to unencrypted if no key
-             updatedFile.content = contentToProcess;
+            // Revert to unencrypted if no key and content might be placeholder
+             updatedFile.isEncrypted = false; 
+             updatedFile.content = contentToProcess; // Keep original or new placeholder
              updatedFile.encryptedContent = undefined;
              updatedFile.encryptionPassword = undefined;
           } else {
-            updatedFile.encryptedContent = encryptText(contentToProcess, keyToUse);
-            updatedFile.content = ""; // Clear raw content
+             // For placeholder types, the content to encrypt is the placeholder message itself if newContent is not provided.
+             // If newContent IS provided, it's the actual content the user edited (e.g. image URL, doc text)
+            const sourceForEncryption = (newContent !== undefined) ? newContent :
+                                       ( (file.type === 'image' || file.type === 'document' || file.type === 'video') ? file.content : contentToProcess );
+
+
+            updatedFile.encryptedContent = encryptText(sourceForEncryption, keyToUse);
+            updatedFile.content = (file.type === 'image' || file.type === 'document' || file.type === 'video') ? sourceForEncryption : ""; // Retain placeholder if it was encrypted, else clear
             updatedFile.isEncrypted = true;
-            updatedFile.encryptionPassword = keyToUse; // Store the key used
+            updatedFile.encryptionPassword = keyToUse; 
           }
         } else { // File is to be unencrypted
-          updatedFile.content = contentToProcess; // Should be plaintext already or from newContent
+           // If newContent is provided, use it. Otherwise, use existing file.content (which should be placeholder if it was one)
+          updatedFile.content = newContent !== undefined ? newContent : file.content;
           updatedFile.isEncrypted = false;
           updatedFile.encryptedContent = undefined;
           updatedFile.encryptionPassword = undefined;
@@ -205,28 +212,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
     if (file.encryptedContent) {
       try {
-        // In a real app, you'd compare passwordAttempt with a stored hash or use it to derive a key.
-        // For this demo, we're using the provided passwordAttempt directly if it matches file.encryptionPassword
-        // or if file.encryptionPassword wasn't stored but passwordAttempt is given.
-        // A better approach is to always require the passwordAttempt for decryption.
-        // The stored file.encryptionPassword is a simplification for this demo.
-        const keyToUse = file.encryptionPassword || passwordAttempt; // Fallback for older items. Ideally always passwordAttempt.
-        
-        // Simple direct comparison for demo; in real app, never store raw password.
-        // This check implies passwordAttempt should be the same as stored, which isn't ideal UX.
-        // Better: just try to decrypt with passwordAttempt.
-        // if (file.encryptionPassword && file.encryptionPassword !== passwordAttempt) {
-        //   return "[Decryption Failed - Incorrect password]";
-        // }
-
         return decryptText(file.encryptedContent, passwordAttempt);
       } catch (e) {
         return "[Decryption Failed - Invalid password or corrupt data]";
       }
     }
-    // Fallback for image/document placeholders if they were marked encrypted but logic path is unclear
-    if (file.type === 'image' || file.type === 'document') {
-        return file.content; 
+    // Fallback for image/document/video placeholders if they were marked encrypted and encryptedContent is somehow missing
+    if (file.type === 'image' || file.type === 'document' || file.type === 'video') {
+        // If it was encrypted, its 'content' field might be empty or hold the original placeholder
+        // that was then encrypted. If encryptedContent is missing, this is a fallback.
+        return file.content || "[Encrypted - Content data missing]";
     }
     return "[Encrypted - Content unavailable or error in decryption logic]";
   }, []);

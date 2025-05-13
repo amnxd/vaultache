@@ -103,7 +103,10 @@ export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
       finalContent = `https://picsum.photos/seed/${Date.now()}/400/300`; 
     } else if (fileType === 'document') {
       finalContent = `This is a placeholder for the document named "${fileName}". Actual content not stored in this demo.`;
+    } else if (fileType === 'video') {
+      finalContent = `This is a placeholder for the video named "${fileName}". Actual content not stored in this demo.`;
     }
+
 
     const newFileData: Omit<FileItem, 'id' | 'createdAt' | 'updatedAt' | 'encryptedContent'> & { encryptionPassword?: string } = {
       name: fileName.trim(),
@@ -130,7 +133,7 @@ export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
             Add New File
           </DialogTitle>
           <DialogDescription>
-            Store your texts, images, documents, or links securely. Encrypt if needed.
+            Store your texts, images, documents, links, or videos securely. Encrypt if needed.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto space-y-4 p-1 pr-3">
@@ -157,6 +160,7 @@ export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
                 <SelectItem value="image">Image (Placeholder)</SelectItem>
                 <SelectItem value="document">Document (Placeholder)</SelectItem>
                 <SelectItem value="link">Link</SelectItem>
+                <SelectItem value="video">Video (Placeholder)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -182,6 +186,11 @@ export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
            {fileType === 'document' && (
             <p className="text-sm text-muted-foreground p-2 border rounded-md bg-secondary/30">
               A placeholder document will be created. Actual document uploads are not supported in this demo.
+            </p>
+           )}
+            {fileType === 'video' && (
+            <p className="text-sm text-muted-foreground p-2 border rounded-md bg-secondary/30">
+              A placeholder video will be created. Actual video uploads are not supported in this demo.
             </p>
            )}
 

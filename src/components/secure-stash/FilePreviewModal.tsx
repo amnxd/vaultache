@@ -138,7 +138,7 @@ export function FilePreviewModal({ file, isOpen, setIsOpen }: FilePreviewModalPr
                     data-ai-hint="placeholder image"
                   />
                 )}
-                {file.type === 'document' && <p className="text-muted-foreground">{displayedContent}</p>}
+                {(file.type === 'document' || file.type === 'video') && <p className="text-muted-foreground">{displayedContent}</p>}
               </>
             )}
             {!isContentReady && file.isEncrypted && !decryptionError && (

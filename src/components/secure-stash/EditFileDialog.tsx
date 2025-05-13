@@ -247,8 +247,11 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
             <Select value={fileType} onValueChange={(value) => setFileType(value as FileType)} disabled>
               <SelectTrigger id="editFileType" className="w-full mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="text">Text</SelectItem><SelectItem value="image">Image</SelectItem>
-                <SelectItem value="document">Document</SelectItem><SelectItem value="link">Link</SelectItem>
+                <SelectItem value="text">Text</SelectItem>
+                <SelectItem value="image">Image</SelectItem>
+                <SelectItem value="document">Document</SelectItem>
+                <SelectItem value="link">Link</SelectItem>
+                <SelectItem value="video">Video</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground mt-1">File type cannot be changed after creation.</p>
@@ -272,11 +275,11 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
                     placeholder="https://picsum.photos/seed/example/400/300" className="mt-1" />
                 </div>
               )}
-              {fileType === 'document' && (
+              {(fileType === 'document' || fileType === 'video') && (
                 <div>
-                  <Label htmlFor="editFileContent">Document Content (Placeholder)</Label>
+                  <Label htmlFor="editFileContent">{fileType === 'document' ? 'Document Content (Placeholder)' : 'Video Content (Placeholder)'}</Label>
                   <Textarea id="editFileContent" value={fileContent} onChange={(e) => setFileContent(e.target.value)}
-                    placeholder="Placeholder document content..." rows={4} className="mt-1" />
+                    placeholder={`Placeholder ${fileType} content...`} rows={4} className="mt-1" />
                 </div>
               )}
             </>
@@ -307,16 +310,12 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
                     const newCheckedState = Boolean(checkedSt);
                     setIsEncrypted(newCheckedState);
                     if (!newCheckedState) { // If unchecking encryption
-                        // setCurrentEncryptionPassword(''); // Optionally clear password if user unchecks
                          if (fileToEdit.isEncrypted && !isContentDecrypted) {
                            toast({title: "Decrypt Content First", description: "To save as unencrypted, please decrypt the content first using its original password.", variant:"destructive"});
                            // Revert checkbox, as we can't unencrypt without decryption key
                            setIsEncrypted(true);
                            return;
                          }
-                    } else if (newCheckedState && !currentEncryptionPassword && fileToEdit.isEncrypted && isContentDecrypted) {
-                        // If checking encryption, and was previously encrypted & decrypted, prompt for password again if not set
-                        // Or assume user will fill the "Encryption Password for Saving" field
                     }
                 }}
                 />
@@ -358,7 +357,7 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
         <DialogFooter className="mt-auto pt-4 border-t">
           <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
           <Button type="submit" onClick={handleSubmit} 
-            disabled={ (isEncrypted && !currentEncryptionPassword.trim()) || (fileToEdit.isEncrypted && !isContentDecrypted && !isEncrypted) }
+            disabled={ (isEncrypted && !currentEncryptionPassword.trim()) || (fileToEdit.isEncrypted && !isContentDecrypted && !isEncrypted && fileToEdit.type !== 'image' && fileToEdit.type !== 'document' && fileToEdit.type !== 'video' ) }
           >
             Save Changes
           </Button>
