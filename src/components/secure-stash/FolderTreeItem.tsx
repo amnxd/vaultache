@@ -1,3 +1,4 @@
+
 "use client";
 import React from 'react';
 import type { FolderItem as FolderType } from '@/lib/types';
@@ -11,6 +12,18 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 interface FolderTreeItemProps {
   folder: FolderType;
@@ -24,22 +37,12 @@ interface FolderTreeItemProps {
 
 export function FolderTreeItem({ folder, level, onSelectFolder, isSelected, toggleFolderOpen, isOpen, hasChildren }: FolderTreeItemProps) {
   const { deleteFolder, hasEncryptedFilesInFolderOrSubfolders } = useAppContext();
+  const { toast } = useToast();
 
   const containsEncryptedFiles = hasEncryptedFilesInFolderOrSubfolders(folder.id);
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (containsEncryptedFiles) {
-      alert("This folder cannot be deleted because it or one of its subfolders contains encrypted files. Please decrypt or move them first.");
-      return;
-    }
-    if (window.confirm(`Are you sure you want to delete folder "${folder.name}" and all its contents? This action cannot be undone.`)) {
-      deleteFolder(folder.id);
-    }
-  };
-
   const handleToggleOpen = (e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.stopPropagation(); // Important to prevent folder selection
     toggleFolderOpen();
   };
 
@@ -59,7 +62,12 @@ export function FolderTreeItem({ folder, level, onSelectFolder, isSelected, togg
             "flex-grow flex items-center h-9 px-2 py-1.5 rounded-md cursor-pointer truncate",
             isSelected ? "bg-accent text-accent-foreground" : "hover:bg-muted/50"
           )}
-          onClick={() => onSelectFolder(folder.id)}
+          onClick={(e) => {
+            if ((e.target as HTMLElement).closest('[data-no-select-folder="true"]')) {
+              return;
+            }
+            onSelectFolder(folder.id);
+          }}
           title={folder.name}
           role="button"
           tabIndex={0}
@@ -69,6 +77,7 @@ export function FolderTreeItem({ folder, level, onSelectFolder, isSelected, togg
           {hasChildren ? (
             <button
               type="button"
+              data-no-select-folder="true"
               className="h-6 w-6 p-0.5 mr-1 shrink-0 rounded-md hover:bg-muted/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={handleToggleOpen}
               aria-label={isOpen ? "Collapse folder" : "Expand folder"}
@@ -85,24 +94,49 @@ export function FolderTreeItem({ folder, level, onSelectFolder, isSelected, togg
 
         {/* Delete Button (separate, at the end of the row) */}
         <TooltipProvider delayDuration={300}>
-          <div className="flex items-center shrink-0 ml-1 pr-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 opacity-0 group-hover:opacity-100 focus:opacity-100"
-                  onClick={handleDelete}
-                  disabled={containsEncryptedFiles}
-                  aria-label={containsEncryptedFiles ? "Cannot delete folder with encrypted files" : `Delete folder ${folder.name}`}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p>{containsEncryptedFiles ? "Folder or subfolders contain encrypted files" : `Delete ${folder.name}`}</p>
-              </TooltipContent>
-            </Tooltip>
+          <div className="flex items-center shrink-0 ml-1 pr-1" data-no-select-folder="true">
+            <AlertDialog>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      disabled={containsEncryptedFiles}
+                      aria-label={containsEncryptedFiles ? "Cannot delete folder with encrypted files" : `Delete folder ${folder.name}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </AlertDialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>{containsEncryptedFiles ? "Folder or subfolders contain locked files" : `Delete ${folder.name}`}</p>
+                </TooltipContent>
+              </Tooltip>
+              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the folder "{folder.name}" and all its contents (files and subfolders).
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteFolder(folder.id);
+                      toast({ title: `Folder "${folder.name}" deleted successfully.` });
+                    }}
+                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                  >
+                    Yes, delete folder
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </TooltipProvider>
       </div>
