@@ -41,7 +41,7 @@ export function AppSidebar() {
   
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b">
+      <div className="p-2 md:p-4 border-b">
         <Button
           onClick={() => setIsCreateFolderOpen(true)}
           className="w-full"
@@ -75,3 +75,4 @@ export function AppSidebar() {
     </div>
   );
 }
+

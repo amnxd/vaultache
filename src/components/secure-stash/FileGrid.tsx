@@ -54,7 +54,7 @@ export function FileGrid() {
   
   return (
     <div className="p-4 md:p-6 h-full flex flex-col">
-      <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
+      <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-2 md:gap-4">
         {/* Left: Breadcrumbs and Title */}
         <div className="w-full md:w-auto md:flex-shrink-0 order-1 md:order-1">
           <Breadcrumb>
@@ -104,20 +104,20 @@ export function FileGrid() {
       </div>
 
       {filteredFiles.length === 0 ? (
-        <div className="flex-grow flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-muted rounded-lg">
+        <div className="flex-grow flex flex-col items-center justify-center text-center p-4 sm:p-8 border-2 border-dashed border-muted rounded-lg">
           {searchTerm.trim() ? (
             <>
-              <SearchIcon className="h-16 w-16 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-medium text-muted-foreground mb-2">No files match your search</h3>
-              <p className="text-sm text-muted-foreground mb-4">
+              <SearchIcon className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground mb-4" />
+              <h3 className="text-lg sm:text-xl font-medium text-muted-foreground mb-2">No files match your search</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-4">
                 Try a different search term or clear the search.
               </p>
             </>
           ) : (
             <>
-              <FilePlus2 className="h-16 w-16 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-medium text-muted-foreground mb-2">No files here yet</h3>
-              <p className="text-sm text-muted-foreground mb-4">
+              <FilePlus2 className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground mb-4" />
+              <h3 className="text-lg sm:text-xl font-medium text-muted-foreground mb-2">No files here yet</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-4">
                 Click "Add New File" to get started.
               </p>
             </>
@@ -157,3 +157,4 @@ export function FileGrid() {
     </div>
   );
 }
+

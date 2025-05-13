@@ -64,23 +64,23 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
 
   return (
     <Card className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-200 h-full">
-      <CardHeader className="p-3"> 
-        <CardTitle className="flex items-center justify-between text-base"> 
-          <div className="flex items-center gap-2 truncate">
-            <FileTypeIcon type={file.type} className="text-primary shrink-0" />
+      <CardHeader className="p-2 sm:p-3"> 
+        <CardTitle className="flex items-center justify-between text-sm sm:text-base"> 
+          <div className="flex items-center gap-1 sm:gap-2 truncate">
+            <FileTypeIcon type={file.type} className="text-primary shrink-0 h-4 w-4 sm:h-5 sm:w-5" />
             <span className="truncate" title={file.name}>{file.name}</span>
           </div>
           {file.isEncrypted && (
-            <Lock className="h-4 w-4 text-orange-500 shrink-0" title="Encrypted" />
+            <Lock className="h-3 w-3 sm:h-4 sm:w-4 text-orange-500 shrink-0" title="Encrypted" />
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-3 flex-grow min-h-[60px]"> 
+      <CardContent className="p-2 sm:p-3 flex-grow min-h-[50px] sm:min-h-[60px]"> 
         {file.type === 'image' && file.content && !file.isEncrypted && (
           <img 
             src={file.content} 
             alt={file.name} 
-            className="w-full h-24 object-cover rounded-md mb-2" 
+            className="w-full h-20 sm:h-24 object-cover rounded-md mb-2" 
             data-ai-hint="abstract design"
             onError={(e) => (e.currentTarget.style.display = 'none')} 
           />
@@ -97,7 +97,7 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
         <p className="text-xs text-muted-foreground">Updated: {displayDate}</p>
         {file.fileSize && <p className="text-xs text-muted-foreground">Size: {(file.fileSize / 1024).toFixed(2)} KB</p>}
       </CardContent>
-      <CardFooter className="p-2 mt-auto flex items-center justify-end gap-1.5 bg-muted/30"> 
+      <CardFooter className="p-2 mt-auto flex items-center justify-end gap-1 sm:gap-1.5 bg-muted/30"> 
         <TooltipProvider delayDuration={300}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -107,7 +107,7 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
                 className="h-7 px-2 py-1 rounded"
                 title={`View ${file.name}`}
               >
-                <Eye /> 
+                <Eye className="h-4 w-4" /> 
                 <span className="sr-only">View</span>
               </Button>
             </TooltipTrigger>
@@ -124,7 +124,7 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
                 className="h-7 px-2 py-1 rounded"
                 title={`Edit ${file.name}`}
               >
-                <Pencil />
+                <Pencil className="h-4 w-4" />
                 <span className="sr-only">Edit</span>
               </Button>
             </TooltipTrigger>
@@ -142,7 +142,7 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
                 disabled={file.isEncrypted}
                 title={file.isEncrypted ? "Encrypted files cannot be deleted" : `Delete file "${file.name}"`}
               >
-                <Trash2 />
+                <Trash2 className="h-4 w-4" />
                 <span className="sr-only">Delete</span>
               </Button>
             </TooltipTrigger>

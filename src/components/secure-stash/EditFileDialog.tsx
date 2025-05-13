@@ -230,7 +230,7 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto space-y-4 p-1 pr-3">
+        <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto space-y-4 p-2 md:p-4">
           <div>
             <Label htmlFor="editFileName">File Name</Label>
             <Input
@@ -366,3 +366,4 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
     </Dialog>
   );
 }
+

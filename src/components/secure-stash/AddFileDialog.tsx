@@ -136,7 +136,7 @@ export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
             Store your texts, images, documents, links, or videos securely. Encrypt if needed.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto space-y-4 p-1 pr-3">
+        <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto space-y-4 p-2 md:p-4">
           <div>
             <Label htmlFor="fileName">File Name</Label>
             <Input
@@ -260,3 +260,4 @@ export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
     </Dialog>
   );
 }
+
