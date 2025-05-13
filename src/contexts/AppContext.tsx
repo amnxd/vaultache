@@ -12,6 +12,7 @@ interface AppContextType {
   currentFolderId: string | null;
   addFolder: (name: string, parentId: string | null) => void;
   addFile: (fileData: Omit<FileItem, 'id' | 'createdAt' | 'updatedAt' | 'encryptedContent'>) => void;
+  updateFile: (fileId: string, updates: Partial<Omit<FileItem, 'id' | 'createdAt' | 'folderId'>>) => void;
   updateFileTags: (fileId: string, tags: string[]) => void;
   deleteFile: (fileId: string) => void;
   deleteFolder: (folderId: string) => void;
@@ -21,6 +22,7 @@ interface AppContextType {
   getSubfoldersForCurrentFolder: () => FolderItem[];
   getFolderPath: (folderId: string | null) => FolderItem[];
   decryptFileContent: (file: FileItem) => string;
+  encryptFileContent: (content: string) => string | undefined;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -85,33 +87,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addFile = useCallback((fileData: Omit<FileItem, 'id' | 'createdAt' | 'updatedAt' | 'encryptedContent'>) => {
     const now = Date.now();
-    let processedContent = fileData.content;
-    let encryptedContent: string | undefined = undefined;
-
-    if (fileData.isEncrypted && encryptionKey) {
-      encryptedContent = encryptText(fileData.content, encryptionKey);
-    } else if (fileData.isEncrypted && !encryptionKey) {
-      // If intended to be encrypted but no key, store as is but flag it. User will be prompted.
-      // Or, prevent adding? For now, allow adding, preview will show "encrypted, key needed".
-      console.warn("File intended for encryption, but no key provided. Storing unencrypted content in encrypted field for now.");
-      // This case should ideally be handled by UI preventing this state or encrypting once key is set.
-      // For simplicity, if isEncrypted is true, we assume encryption happens or content is already encrypted.
-      // Let's adjust: if isEncrypted and key exists, encrypt. Otherwise, content remains as is, and encryptedContent is undefined.
-      // The `decryptFileContent` will handle showing raw content if not properly encrypted.
-    }
-
-
+    
     const newFile: FileItem = {
       ...fileData,
       id: crypto.randomUUID(),
       encryptedContent: fileData.isEncrypted && encryptionKey ? encryptText(fileData.content, encryptionKey) : undefined,
-      content: fileData.isEncrypted && encryptionKey ? "" : fileData.content, // Store original if not encrypting, or clear if encrypting
+      content: fileData.isEncrypted && encryptionKey ? "" : fileData.content, 
       createdAt: now,
       updatedAt: now,
     };
     setFiles((prev) => [...prev, newFile]);
   }, [encryptionKey]);
   
+  const updateFile = useCallback((fileId: string, updates: Partial<Omit<FileItem, 'id' | 'createdAt' | 'folderId'>>) => {
+    setFiles(prevFiles =>
+      prevFiles.map(file =>
+        file.id === fileId
+          ? { ...file, ...updates, updatedAt: Date.now() }
+          : file
+      )
+    );
+  }, []);
+
   const updateFileTags = useCallback((fileId: string, tags: string[]) => {
     setFiles(prev => prev.map(f => f.id === fileId ? {...f, tags, updatedAt: Date.now()} : f));
   }, []);
@@ -121,28 +118,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const deleteFolder = useCallback((folderId: string) => {
-    setFolders(prev => prev.filter(f => f.id !== folderId));
-    // Also delete files and subfolders within this folder
-    setFiles(prev => prev.filter(f => f.folderId !== folderId)); // Simple deletion, not recursive for sub-sub-folders' files.
-    // A more robust solution would handle recursive deletion.
-    let foldersToDelete = [folderId];
-    let currentFolders = folders;
-    let i = 0;
-    while(i < foldersToDelete.length) {
-      const parent = foldersToDelete[i];
-      currentFolders.forEach(folder => {
-        if (folder.parentId === parent && !foldersToDelete.includes(folder.id)) {
-          foldersToDelete.push(folder.id);
-        }
-      });
-      i++;
+    // Collect all folder IDs to delete (the folder itself and all its descendants)
+    let allFolderIdsToDelete: string[] = [folderId];
+    let currentParentIds = [folderId];
+    
+    while (currentParentIds.length > 0) {
+      const children = folders.filter(f => currentParentIds.includes(f.parentId!));
+      const childIds = children.map(c => c.id);
+      if (childIds.length === 0) break;
+      allFolderIdsToDelete = [...allFolderIdsToDelete, ...childIds];
+      currentParentIds = childIds;
     }
-    setFolders(prev => prev.filter(f => !foldersToDelete.includes(f.id)));
 
-    if (currentFolderId === folderId) {
-      setCurrentFolderIdInternal(null); // Go to root if current folder is deleted
+    // Delete all identified folders
+    setFolders(prev => prev.filter(f => !allFolderIdsToDelete.includes(f.id)));
+    // Delete all files within these folders
+    setFiles(prev => prev.filter(f => !allFolderIdsToDelete.includes(f.folderId!)));
+
+    if (currentFolderId === folderId || allFolderIdsToDelete.includes(currentFolderId!)) {
+      setCurrentFolderIdInternal(folders.find(f => f.id === folderId)?.parentId || null);
     }
-  }, [currentFolderId, folders]);
+  }, [folders, currentFolderId]);
 
 
   const setCurrentFolderId = useCallback((folderId: string | null) => {
@@ -186,11 +182,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return "[Decryption Failed - Invalid key or corrupt data]";
       }
     }
-    // If isEncrypted but no encryptedContent, it implies an issue or it's an image/doc placeholder
     if (file.type === 'image' || file.type === 'document') {
-        return file.content; // For image/doc, content is URL/placeholder, not actual encrypted bytes here
+        return file.content; 
     }
     return "[Encrypted - Content unavailable]";
+  }, [encryptionKey]);
+
+  const encryptFileContent = useCallback((content: string): string | undefined => {
+    if (!encryptionKey) return undefined; // Cannot encrypt without a key
+    try {
+      return encryptText(content, encryptionKey);
+    } catch (e) {
+      console.error("Encryption failed during explicit call:", e);
+      return undefined; // Or handle error as appropriate
+    }
   }, [encryptionKey]);
 
   return (
@@ -201,6 +206,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       currentFolderId,
       addFolder,
       addFile,
+      updateFile,
       updateFileTags,
       deleteFile,
       deleteFolder,
@@ -210,6 +216,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       getSubfoldersForCurrentFolder,
       getFolderPath,
       decryptFileContent,
+      encryptFileContent,
     }}>
       {children}
     </AppContext.Provider>

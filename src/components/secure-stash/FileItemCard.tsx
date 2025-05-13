@@ -6,12 +6,13 @@ import { useAppContext } from '@/hooks/useAppContext';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { FileText, FileImage, FileArchive, Link as LinkIcon, Eye, Trash2, Lock, Unlock, Tag } from 'lucide-react'; // Changed FileCode2 to FileArchive
+import { FileText, FileImage, FileArchive, Link as LinkIcon, Eye, Trash2, Lock, Unlock, Tag, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FileItemCardProps {
   file: FileItemType;
   onViewFile: (file: FileItemType) => void;
+  onEditFile: (file: FileItemType) => void;
 }
 
 const FileTypeIcon: React.FC<{ type: FileItemType['type'], className?: string }> = ({ type, className }) => {
@@ -22,7 +23,7 @@ const FileTypeIcon: React.FC<{ type: FileItemType['type'], className?: string }>
     case 'image':
       return <FileImage className={commonClass} />;
     case 'document':
-      return <FileArchive className={commonClass} />; // Using FileArchive for generic documents
+      return <FileArchive className={commonClass} />; 
     case 'link':
       return <LinkIcon className={commonClass} />;
     default:
@@ -30,7 +31,7 @@ const FileTypeIcon: React.FC<{ type: FileItemType['type'], className?: string }>
   }
 };
 
-export function FileItemCard({ file, onViewFile }: FileItemCardProps) {
+export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps) {
   const { deleteFile, encryptionKey } = useAppContext();
 
   const handleDelete = () => {
@@ -60,8 +61,8 @@ export function FileItemCard({ file, onViewFile }: FileItemCardProps) {
             src={file.content} 
             alt={file.name} 
             className="w-full h-32 object-cover rounded-md mb-2" 
-            data-ai-hint="abstract texture"
-            onError={(e) => (e.currentTarget.style.display = 'none')} // Hide if image fails to load
+            data-ai-hint="abstract design"
+            onError={(e) => (e.currentTarget.style.display = 'none')} 
           />
         )}
         {file.tags.length > 0 && (
@@ -76,15 +77,17 @@ export function FileItemCard({ file, onViewFile }: FileItemCardProps) {
         <p className="text-xs text-muted-foreground">Updated: {displayDate}</p>
         {file.fileSize && <p className="text-xs text-muted-foreground">Size: {(file.fileSize / 1024).toFixed(2)} KB</p>}
       </CardContent>
-      <CardFooter className="p-4 flex justify-end gap-2 bg-muted/30">
-        <Button variant="outline" size="sm" onClick={() => onViewFile(file)}>
-          <Eye className="h-4 w-4 mr-2 md:mr-0" /> <span className="md:hidden">View</span>
+      <CardFooter className="p-4 flex flex-wrap justify-end gap-2 bg-muted/30">
+        <Button variant="outline" size="sm" onClick={() => onViewFile(file)} className="flex-1 min-w-[calc(33.33%-0.5rem)] sm:flex-none sm:min-w-0">
+          <Eye className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">View</span>
         </Button>
-        <Button variant="destructiveOutline" size="sm" onClick={handleDelete}>
-          <Trash2 className="h-4 w-4 mr-2 md:mr-0" /> <span className="md:hidden">Delete</span>
+        <Button variant="outline" size="sm" onClick={() => onEditFile(file)} className="flex-1 min-w-[calc(33.33%-0.5rem)] sm:flex-none sm:min-w-0">
+          <Pencil className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Edit</span>
+        </Button>
+        <Button variant="destructiveOutline" size="sm" onClick={handleDelete} className="flex-1 min-w-[calc(33.33%-0.5rem)] sm:flex-none sm:min-w-0">
+          <Trash2 className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Delete</span>
         </Button>
       </CardFooter>
     </Card>
   );
 }
-
