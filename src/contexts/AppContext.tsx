@@ -20,7 +20,8 @@ interface AppContextType {
   getSubfoldersForCurrentFolder: () => FolderItem[];
   getFolderPath: (folderId: string | null) => FolderItem[];
   decryptFileContent: (file: FileItem, passwordAttempt: string) => string;
-  toggleFolderOpen: (folderId: string) => void; // Added for expand/collapse
+  toggleFolderOpen: (folderId: string) => void;
+  hasEncryptedFilesInFolderOrSubfolders: (folderId: string) => boolean; // Added
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -35,7 +36,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const storedFolders = localStorage.getItem('secureStashFolders');
       if (storedFolders) {
         const parsedFolders: FolderItem[] = JSON.parse(storedFolders);
-        // Ensure isOpen defaults to true for folders loaded from storage that might not have this property
         setFolders(parsedFolders.map(f => ({ ...f, isOpen: f.isOpen === undefined ? true : f.isOpen })));
       }
       const storedFiles = localStorage.getItem('secureStashFiles');
@@ -68,7 +68,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       parentId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      isOpen: true, // New folders are open by default
+      isOpen: true,
     };
     setFolders((prev) => [...prev, newFolder]);
   }, []);
@@ -82,7 +82,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     if (restOfFileData.isEncrypted && encryptionPassword) {
       encryptedContentVal = encryptText(restOfFileData.content, encryptionPassword);
-      contentVal = ""; 
+      contentVal = (fileData.type === 'image' || fileData.type === 'document' || fileData.type === 'video') ? restOfFileData.content : ""; 
     } else if (restOfFileData.isEncrypted && !encryptionPassword) {
       console.warn("File marked for encryption but no password provided. Storing as unencrypted.");
       restOfFileData.isEncrypted = false;
@@ -109,27 +109,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         let updatedFile = { ...file, ...otherUpdates, updatedAt: Date.now() };
 
         const isActuallyEncrypted = newIsEncrypted !== undefined ? newIsEncrypted : file.isEncrypted;
-        const contentToProcess = newContent !== undefined ? newContent : (isActuallyEncrypted ? "" : file.content); 
+        // Determine content to process based on newContent availability, otherwise use existing content.
+        // If the file type preserves plaintext content even when encrypted (image/doc/video URLs), use that as base if newContent isn't provided for encryption.
+        let contentToProcessForEncryption: string;
+        if (newContent !== undefined) {
+            contentToProcessForEncryption = newContent;
+        } else if (file.type === 'image' || file.type === 'document' || file.type === 'video') {
+            // For these types, the 'content' field holds the URL/placeholder even if encrypted.
+            // If newContent isn't given, we re-encrypt the existing 'content'.
+            contentToProcessForEncryption = file.content;
+        } else {
+            // For text/link, if not encrypted, content is in file.content.
+            // If it was encrypted, file.content would be "", this case should be handled by requiring decryption first.
+            // This branch implies we're encrypting existing plaintext from file.content.
+            contentToProcessForEncryption = file.content;
+        }
+
 
         if (isActuallyEncrypted) {
           const keyToUse = newEncryptionPassword !== undefined ? newEncryptionPassword : file.encryptionPassword;
           if (!keyToUse) {
             console.error("Cannot encrypt file without a password during update.");
              updatedFile.isEncrypted = false; 
-             updatedFile.content = contentToProcess; 
+             updatedFile.content = contentToProcessForEncryption; 
              updatedFile.encryptedContent = undefined;
              updatedFile.encryptionPassword = undefined;
           } else {
-            const sourceForEncryption = (newContent !== undefined) ? newContent :
-                                       ( (file.type === 'image' || file.type === 'document' || file.type === 'video') ? file.content : contentToProcess );
-
-            updatedFile.encryptedContent = encryptText(sourceForEncryption, keyToUse);
-            updatedFile.content = (file.type === 'image' || file.type === 'document' || file.type === 'video') ? sourceForEncryption : "";
+            updatedFile.encryptedContent = encryptText(contentToProcessForEncryption, keyToUse);
+            // For image, doc, video, keep the URL/placeholder in 'content'. For others, clear it.
+            updatedFile.content = (file.type === 'image' || file.type === 'document' || file.type === 'video') ? contentToProcessForEncryption : "";
             updatedFile.isEncrypted = true;
             updatedFile.encryptionPassword = keyToUse; 
           }
         } else { 
-          updatedFile.content = newContent !== undefined ? newContent : file.content;
+          // Decrypting: newContent should be the plaintext. If not provided, it means keeping existing decrypted content.
+          updatedFile.content = newContent !== undefined ? newContent : file.content; 
           updatedFile.isEncrypted = false;
           updatedFile.encryptedContent = undefined;
           updatedFile.encryptionPassword = undefined;
@@ -151,24 +165,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     let allFolderIdsToDelete: string[] = [folderId];
     let currentParentIds = [folderId];
     
-    while (currentParentIds.length > 0) {
-      const children = folders.filter(f => f.parentId !== null && currentParentIds.includes(f.parentId));
-      const childIds = children.map(c => c.id);
-      if (childIds.length === 0) break;
-      allFolderIdsToDelete = [...allFolderIdsToDelete, ...childIds];
-      currentParentIds = childIds;
-    }
+    // Recursively find all subfolder IDs
+    const findSubfolderIds = (parentId: string): string[] => {
+        let ids: string[] = [];
+        const children = folders.filter(f => f.parentId === parentId);
+        for (const child of children) {
+            ids.push(child.id);
+            ids = ids.concat(findSubfolderIds(child.id));
+        }
+        return ids;
+    };
+    allFolderIdsToDelete = allFolderIdsToDelete.concat(findSubfolderIds(folderId));
 
     setFolders(prevFolders => prevFolders.filter(f => !allFolderIdsToDelete.includes(f.id)));
     
     setFiles(prevFiles => prevFiles.filter(f => {
-      if (f.folderId === null) {
-        return true;
-      }
+      if (f.folderId === null) return true; // Keep files in root if not explicitly deleted
       return !allFolderIdsToDelete.includes(f.folderId); 
     }));
 
-    if (currentFolderId === folderId || (currentFolderId !== null && allFolderIdsToDelete.includes(currentFolderId))) {
+    // If current folder or one of its ancestors was deleted, navigate to its parent or root
+    if (currentFolderId !== null && allFolderIdsToDelete.includes(currentFolderId)) {
       const originalFolder = folders.find(f => f.id === folderId); 
       setCurrentFolderIdInternal(originalFolder?.parentId || null);
     }
@@ -216,8 +233,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return "[Decryption Failed - Invalid password or corrupt data]";
       }
     }
+    // Fallback for encrypted image/doc/video where encryptedContent might not be primary store
     if (file.type === 'image' || file.type === 'document' || file.type === 'video') {
-        return file.content || "[Encrypted - Content data missing]";
+        if (file.encryptionPassword && passwordAttempt === file.encryptionPassword) {
+             return file.content || "[Encrypted - Placeholder content, password correct]";
+        }
+        return "[Decryption Failed - Invalid password for placeholder file]";
     }
     return "[Encrypted - Content unavailable or error in decryption logic]";
   }, []);
@@ -229,6 +250,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       )
     );
   }, []);
+
+  const hasEncryptedFilesInFolderOrSubfolders = useCallback((folderId: string): boolean => {
+    const checkRecursively = (currentFolderId: string): boolean => {
+        const filesInThisFolder = files.filter(file => file.folderId === currentFolderId);
+        if (filesInThisFolder.some(file => file.isEncrypted)) {
+            return true;
+        }
+
+        const subfoldersOfThisFolder = folders.filter(folder => folder.parentId === currentFolderId);
+        for (const subfolder of subfoldersOfThisFolder) {
+            if (checkRecursively(subfolder.id)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    return checkRecursively(folderId);
+  }, [files, folders]);
 
 
   return (
@@ -247,7 +286,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       getSubfoldersForCurrentFolder,
       getFolderPath,
       decryptFileContent,
-      toggleFolderOpen, // Expose the new function
+      toggleFolderOpen,
+      hasEncryptedFilesInFolderOrSubfolders, // Expose the new function
     }}>
       {children}
     </AppContext.Provider>

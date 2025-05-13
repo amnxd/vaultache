@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/tooltip";
 
 interface FolderTreeItemProps {
-  folder: FolderType; // isOpen is already part of FolderType
+  folder: FolderType;
   level: number;
   onSelectFolder: (folderId: string) => void;
   isSelected: boolean;
@@ -24,10 +24,17 @@ interface FolderTreeItemProps {
 }
 
 export function FolderTreeItem({ folder, level, onSelectFolder, isSelected, toggleFolderOpen, isOpen, hasChildren }: FolderTreeItemProps) {
-  const { deleteFolder } = useAppContext();
+  const { deleteFolder, hasEncryptedFilesInFolderOrSubfolders } = useAppContext();
+
+  const containsEncryptedFiles = hasEncryptedFilesInFolderOrSubfolders(folder.id);
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation(); 
+    if (containsEncryptedFiles) {
+      // This alert might be redundant if button is disabled, but good for clarity if somehow clicked
+      alert("This folder cannot be deleted because it or one of its subfolders contains encrypted files. Please decrypt or move them first.");
+      return;
+    }
     if (window.confirm(`Are you sure you want to delete folder "${folder.name}" and all its contents? This action cannot be undone.`)) {
       deleteFolder(folder.id);
     }
@@ -38,7 +45,12 @@ export function FolderTreeItem({ folder, level, onSelectFolder, isSelected, togg
     toggleFolderOpen();
   };
 
-  const folderIcon = isSelected ? <FolderOpen className="h-4 w-4 mr-2 shrink-0" /> : <Folder className="h-4 w-4 mr-2 shrink-0" />;
+  const folderIcon = isOpen && isSelected ? <FolderOpen className="h-4 w-4 mr-2 shrink-0" /> : <Folder className="h-4 w-4 mr-2 shrink-0" />;
+  // If selected and not open, it should still show FolderOpen if it's the current selected folder.
+  // If it's not the current selected but is open (showing children), it should be FolderOpen.
+  // Simplified: if open use FolderOpen, else Folder
+  const effectiveFolderIcon = isOpen ? <FolderOpen className="h-4 w-4 mr-2 shrink-0" /> : <Folder className="h-4 w-4 mr-2 shrink-0" />;
+
 
   return (
     <div
@@ -46,7 +58,7 @@ export function FolderTreeItem({ folder, level, onSelectFolder, isSelected, togg
         "flex items-center justify-between group rounded-md text-sm font-medium",
         isSelected ? "bg-accent text-accent-foreground" : "hover:bg-muted/50",
       )}
-      style={{ paddingLeft: `${level * 1.5 + (hasChildren ? 0 : 1.5) + 0.5}rem` }} // Adjust paddingLeft if no children to align text
+      style={{ paddingLeft: `${level * 1.25 + 0.5}rem` }}
     >
        <Button
         variant="ghost"
@@ -54,36 +66,25 @@ export function FolderTreeItem({ folder, level, onSelectFolder, isSelected, togg
         onClick={() => onSelectFolder(folder.id)}
         title={folder.name}
       >
-        <span className={cn("flex items-center", { "ml-[-1.5rem]": !hasChildren && level > -1})} style={{ marginLeft: !hasChildren && level > -1 ? `-${level === 0 ? 0: 1.5}rem` : '0rem'}}> 
-        {/* This style is to shift text left if no toggle icon. Needs fine tuning.
-            The goal is to align folder names if some have toggles and some don't at same level.
-            A simpler approach might be to always reserve space for the icon, or use a different layout.
-            For now, let's try this simple adjustment.
-         */}
-          {folderIcon}
+        <span className="flex items-center">
+          {hasChildren ? (
+            <button
+              onClick={handleToggleOpen}
+              className="mr-1 p-0.5 rounded hover:bg-muted/50 focus:outline-none focus:ring-1 focus:ring-ring"
+              aria-label={isOpen ? "Collapse folder" : "Expand folder"}
+            >
+              {isOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+            </button>
+          ) : (
+            <span className="w-5 mr-1"></span> // Placeholder for alignment
+          )}
+          {effectiveFolderIcon}
           <span className="truncate">{folder.name}</span>
         </span>
       </Button>
       
       <TooltipProvider delayDuration={300}>
-        <div className="flex items-center shrink-0 gap-0.5">
-          {hasChildren && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 opacity-0 group-hover:opacity-100 focus:opacity-100"
-                  onClick={handleToggleOpen}
-                >
-                  {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p>{isOpen ? "Collapse" : "Expand"}</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
+        <div className="flex items-center shrink-0">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -91,12 +92,14 @@ export function FolderTreeItem({ folder, level, onSelectFolder, isSelected, togg
                 size="icon"
                 className="h-7 w-7 opacity-0 group-hover:opacity-100 focus:opacity-100"
                 onClick={handleDelete}
+                disabled={containsEncryptedFiles}
+                aria-label={containsEncryptedFiles ? "Cannot delete folder with encrypted files" : `Delete folder ${folder.name}`}
               >
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top">
-              <p>Delete {folder.name}</p>
+              <p>{containsEncryptedFiles ? "Folder or subfolders contain encrypted files" : `Delete ${folder.name}`}</p>
             </TooltipContent>
           </Tooltip>
         </div>
