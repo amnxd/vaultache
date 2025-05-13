@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
 }
 
 @layer base {
@@ -26,8 +26,8 @@ body {
     --muted: 0 0% 90%; /* Muted elements on light gray bg */
     --muted-foreground: 240 5% 64.9%;
 
-    --accent: 193 58% 73%; /* Light Cyan #91d7e3 */
-    --accent-foreground: 193 50% 15%; /* Dark Cyan for contrast on #91d7e3 */
+    --accent: 220 83% 75%; /* Light Blue/Purple #8aadf4 */
+    --accent-foreground: 220 50% 20%; /* Dark Blue for contrast on #8aadf4 */
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
@@ -73,8 +73,8 @@ body {
     --muted: 0 0% 13.5%; /* Same as secondary */
     --muted-foreground: 0 0% 50%; /* Medium gray for muted text */
 
-    --accent: 193 58% 73%; /* Light Cyan #91d7e3 */
-    --accent-foreground: 193 50% 15%; /* Dark Cyan for contrast on #91d7e3 */
+    --accent: 220 83% 75%; /* Light Blue/Purple #8aadf4 */
+    --accent-foreground: 220 50% 20%; /* Dark Blue for contrast on #8aadf4 */
 
     --destructive: 0 70% 50%; /* Brighter red for dark mode, e.g., #D92E2E */
     --destructive-foreground: 0 0% 95%; /* Light text on destructive */
