@@ -30,7 +30,7 @@ export function AppLayout() {
            <Button variant="ghost" className="flex items-center gap-2 text-lg font-semibold px-2 group-data-[state=collapsed]:hidden" asChild>
              <a href="#"> {/* Link or action */}
                 <ShieldCheck className="h-6 w-6 text-primary" />
-                <span>Lodgr</span>
+                <span>Storache</span>
              </a>
            </Button>
            {/* This SidebarTrigger handles both collapsing and expanding the sidebar */}
@@ -53,3 +53,4 @@ export function AppLayout() {
     </SidebarProvider>
   );
 }
+

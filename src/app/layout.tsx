@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Lodgr',
-  description: 'Securely store and manage your files with Lodgr.',
+  title: 'Storache',
+  description: 'Securely store and manage your files with Storache.',
 };
 
 export default function RootLayout({
@@ -28,3 +28,4 @@ export default function RootLayout({
     </html>
   );
 }
+

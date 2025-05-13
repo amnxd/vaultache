@@ -13,7 +13,7 @@ export function AppHeader() {
       </div>
       <div className="flex items-center gap-2">
         <ShieldCheck className="h-8 w-8 text-primary" />
-        <h1 className="text-2xl font-semibold text-foreground">Lodgr</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Storache</h1>
       </div>
       <div className="ml-auto flex items-center gap-4">
         <ThemeToggleButton />
@@ -22,3 +22,4 @@ export function AppHeader() {
     </header>
   );
 }
+
