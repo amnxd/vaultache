@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Storache',
-  description: 'Securely store and manage your files with Storache.',
+  title: 'Vaultache',
+  description: 'Securely store and manage your files with Vaultache.',
 };
 
 export default function RootLayout({
