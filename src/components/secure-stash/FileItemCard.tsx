@@ -16,7 +16,7 @@ interface FileItemCardProps {
 }
 
 const FileTypeIcon: React.FC<{ type: FileItemType['type'], className?: string }> = ({ type, className }) => {
-  const commonClass = cn("h-5 w-5", className);
+  const commonClass = cn("h-4 w-4", className); // Reduced icon size
   switch (type) {
     case 'text':
       return <FileText className={commonClass} />;
@@ -44,8 +44,8 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
 
   return (
     <Card className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-200">
-      <CardHeader className="p-4">
-        <CardTitle className="flex items-center justify-between text-lg">
+      <CardHeader className="p-3"> {/* Reduced padding */}
+        <CardTitle className="flex items-center justify-between text-base"> {/* Reduced font size */}
           <div className="flex items-center gap-2 truncate">
             <FileTypeIcon type={file.type} className="text-primary shrink-0" />
             <span className="truncate" title={file.name}>{file.name}</span>
@@ -55,12 +55,12 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-4 flex-grow">
+      <CardContent className="p-3 flex-grow"> {/* Reduced padding */}
         {file.type === 'image' && file.content && (
           <img 
             src={file.content} 
             alt={file.name} 
-            className="w-full h-32 object-cover rounded-md mb-2" 
+            className="w-full h-28 object-cover rounded-md mb-2" // Reduced image height
             data-ai-hint="abstract design"
             onError={(e) => (e.currentTarget.style.display = 'none')} 
           />
@@ -77,17 +77,30 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
         <p className="text-xs text-muted-foreground">Updated: {displayDate}</p>
         {file.fileSize && <p className="text-xs text-muted-foreground">Size: {(file.fileSize / 1024).toFixed(2)} KB</p>}
       </CardContent>
-      <CardFooter className="p-4 flex flex-wrap justify-end gap-2 bg-muted/30">
-        <Button variant="outline" size="sm" onClick={() => onViewFile(file)} className="flex-1 min-w-[calc(33.33%-0.5rem)] sm:flex-none sm:min-w-0">
-          <Eye className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">View</span>
+      <CardFooter className="p-3 flex flex-wrap justify-end gap-1 bg-muted/30"> {/* Reduced padding and gap */}
+        <Button 
+          variant="outline" 
+          onClick={() => onViewFile(file)} 
+          className="h-8 px-2 text-xs rounded-md flex-1 min-w-[calc(33.33%-0.25rem)] sm:flex-none sm:min-w-0" // Adjusted button size and min-width for smaller gap
+        >
+          <Eye className="h-3.5 w-3.5 sm:mr-1.5" /> <span className="hidden sm:inline">View</span> {/* Adjusted icon size and margin */}
         </Button>
-        <Button variant="outline" size="sm" onClick={() => onEditFile(file)} className="flex-1 min-w-[calc(33.33%-0.5rem)] sm:flex-none sm:min-w-0">
-          <Pencil className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Edit</span>
+        <Button 
+          variant="outline" 
+          onClick={() => onEditFile(file)} 
+          className="h-8 px-2 text-xs rounded-md flex-1 min-w-[calc(33.33%-0.25rem)] sm:flex-none sm:min-w-0" // Adjusted button size
+        >
+          <Pencil className="h-3.5 w-3.5 sm:mr-1.5" /> <span className="hidden sm:inline">Edit</span> {/* Adjusted icon size and margin */}
         </Button>
-        <Button variant="destructiveOutline" size="sm" onClick={handleDelete} className="flex-1 min-w-[calc(33.33%-0.5rem)] sm:flex-none sm:min-w-0">
-          <Trash2 className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Delete</span>
+        <Button 
+          variant="destructiveOutline" 
+          onClick={handleDelete} 
+          className="h-8 px-2 text-xs rounded-md flex-1 min-w-[calc(33.33%-0.25rem)] sm:flex-none sm:min-w-0" // Adjusted button size
+        >
+          <Trash2 className="h-3.5 w-3.5 sm:mr-1.5" /> <span className="hidden sm:inline">Delete</span> {/* Adjusted icon size and margin */}
         </Button>
       </CardFooter>
     </Card>
   );
 }
+

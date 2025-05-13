@@ -8,7 +8,7 @@ import type { FileItem as FileItemType } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { FilePlus2, Folder } from 'lucide-react';
 import { AddFileDialog } from './AddFileDialog';
-import { EditFileDialog } from './EditFileDialog'; // Import EditFileDialog
+import { EditFileDialog } from './EditFileDialog';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -21,10 +21,10 @@ import {
 export function FileGrid() {
   const { getFilesForCurrentFolder, currentFolderId, getFolderPath, setCurrentFolderId } = useAppContext();
   const [selectedFile, setSelectedFile] = useState<FileItemType | null>(null);
-  const [editingFile, setEditingFile] = useState<FileItemType | null>(null); // State for file to edit
+  const [editingFile, setEditingFile] = useState<FileItemType | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isAddFileOpen, setIsAddFileOpen] = useState(false);
-  const [isEditFileOpen, setIsEditFileOpen] = useState(false); // State for EditFileDialog
+  const [isEditFileOpen, setIsEditFileOpen] = useState(false);
 
   const files = getFilesForCurrentFolder();
   const folderPath = getFolderPath(currentFolderId);
@@ -81,7 +81,7 @@ export function FileGrid() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 flex-grow overflow-y-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 flex-grow overflow-y-auto">
           {files.sort((a,b) => b.updatedAt - a.updatedAt).map(file => (
             <FileItemCard 
               key={file.id} 
@@ -104,7 +104,7 @@ export function FileGrid() {
         isOpen={isAddFileOpen}
         setIsOpen={setIsAddFileOpen}
       />
-      {editingFile && ( // Render EditFileDialog if a file is being edited
+      {editingFile && (
         <EditFileDialog
           isOpen={isEditFileOpen}
           setIsOpen={setIsEditFileOpen}
@@ -114,3 +114,4 @@ export function FileGrid() {
     </div>
   );
 }
+
