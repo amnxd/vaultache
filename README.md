@@ -1,8 +1,6 @@
-# Firebase Studio
+# Vaultache
 
-This is a Next.js starter project configured for use within Firebase Studio.
-
-This project allows you to build and deploy web applications with the power of Next.js and Firebase.
+A secure and user-friendly application for storaging and managing your data (or secrets).
 
 ## Getting Started
 
