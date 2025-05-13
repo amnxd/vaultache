@@ -1,13 +1,13 @@
 
 "use client";
-import React, { useState }
-from 'react';
+import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { KeyRound, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { useAppContext } from '@/hooks/useAppContext';
-import { SidebarTrigger } from '@/components/ui/sidebar'; // Import from shadcn ui components
+import { SidebarTrigger } from '@/components/ui/sidebar'; 
+import { ThemeToggleButton } from '@/components/ThemeToggleButton';
 
 export function AppHeader() {
   const { encryptionKey, setEncryptionKey } = useAppContext();
@@ -27,6 +27,7 @@ export function AppHeader() {
         <h1 className="text-2xl font-semibold text-foreground">SecureStash</h1>
       </div>
       <div className="ml-auto flex items-center gap-4">
+        <ThemeToggleButton />
         <div className="flex items-center gap-2">
           <Label htmlFor="encryptionKey" className="text-sm font-medium sr-only">
             Encryption Key

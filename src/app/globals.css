@@ -55,25 +55,33 @@ body {
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 220 70% 74.5%;
-    --primary-foreground: 220 25% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 0 0% 64.9%;
-    --accent: 172 40% 65.3%;
-    --accent-foreground: 172 50% 15%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 220 70% 74.5%;
+    --background: 0 0% 6.7%; /* #111111 */
+    --foreground: 0 0% 95%; /* Light gray for text on dark background */
+
+    --card: 0 0% 10%; /* Slightly lighter than background, e.g., #1A1A1A */
+    --card-foreground: 0 0% 95%;
+
+    --popover: 0 0% 10%; /* Similar to card */
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 220 70% 74.5%; /* Existing: #8caaee (Light Blue) */
+    --primary-foreground: 220 25% 10%; /* Existing: Darker blue/black for contrast on light blue primary */
+
+    --secondary: 0 0% 13.5%; /* Dark gray, e.g., #222222 */
+    --secondary-foreground: 0 0% 80%; /* Lighter gray for text on secondary */
+
+    --muted: 0 0% 13.5%; /* Same as secondary */
+    --muted-foreground: 0 0% 50%; /* Medium gray for muted text */
+
+    --accent: 172 40% 65.3%; /* Existing: #81c8be (Teal) */
+    --accent-foreground: 172 50% 15%; /* Existing: Dark teal/black for contrast on teal accent */
+
+    --destructive: 0 70% 50%; /* Brighter red for dark mode, e.g., #D92E2E */
+    --destructive-foreground: 0 0% 95%; /* Light text on destructive */
+
+    --border: 0 0% 16%; /* Border color, e.g., #292929 */
+    --input: 0 0% 16%; /* Input background */
+    --ring: 220 70% 74.5%; /* Primary color for rings */
     
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
@@ -81,13 +89,13 @@ body {
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
 
-    --sidebar-background: 240 5.9% 10%; /* Default dark sidebar */
-    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-background: 0 0% 4.7%; /* Even darker for sidebar, e.g., #0C0C0C */
+    --sidebar-foreground: 0 0% 90%; /* Text on sidebar */
     --sidebar-primary: var(--primary);
-    --sidebar-primary-foreground: var(--primary-foreground); /* Ensure this contrasts with dark primary */
+    --sidebar-primary-foreground: var(--primary-foreground); 
     --sidebar-accent: var(--accent);
-    --sidebar-accent-foreground: var(--accent-foreground); /* Ensure this contrasts with dark accent */
-    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: var(--accent-foreground); 
+    --sidebar-border: 0 0% 12%; /* Border for sidebar elements, e.g. #1F1F1F */
     --sidebar-ring: var(--ring);
   }
 }
