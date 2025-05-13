@@ -78,12 +78,13 @@ export function FileItemCard({ file, onViewFile }: FileItemCardProps) {
       </CardContent>
       <CardFooter className="p-4 flex justify-end gap-2 bg-muted/30">
         <Button variant="outline" size="sm" onClick={() => onViewFile(file)}>
-          <Eye className="mr-2 h-4 w-4" /> View
+          <Eye className="h-4 w-4 mr-2 md:mr-0" /> <span className="md:hidden">View</span>
         </Button>
         <Button variant="destructiveOutline" size="sm" onClick={handleDelete}>
-          <Trash2 className="mr-2 h-4 w-4" /> Delete
+          <Trash2 className="h-4 w-4 mr-2 md:mr-0" /> <span className="md:hidden">Delete</span>
         </Button>
       </CardFooter>
     </Card>
   );
 }
+
