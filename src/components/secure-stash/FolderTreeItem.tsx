@@ -1,9 +1,8 @@
-
 "use client";
 import React from 'react';
 import type { FolderItem as FolderType } from '@/lib/types';
 import { useAppContext } from '@/hooks/useAppContext';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/button'; // Still needed for Delete button
 import { Folder, FolderOpen, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -31,7 +30,6 @@ export function FolderTreeItem({ folder, level, onSelectFolder, isSelected, togg
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation(); 
     if (containsEncryptedFiles) {
-      // This alert might be redundant if button is disabled, but good for clarity if somehow clicked
       alert("This folder cannot be deleted because it or one of its subfolders contains encrypted files. Please decrypt or move them first.");
       return;
     }
@@ -41,50 +39,52 @@ export function FolderTreeItem({ folder, level, onSelectFolder, isSelected, togg
   };
 
   const handleToggleOpen = (e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.stopPropagation(); 
     toggleFolderOpen();
   };
 
-  const folderIcon = isOpen && isSelected ? <FolderOpen className="h-4 w-4 mr-2 shrink-0" /> : <Folder className="h-4 w-4 mr-2 shrink-0" />;
-  // If selected and not open, it should still show FolderOpen if it's the current selected folder.
-  // If it's not the current selected but is open (showing children), it should be FolderOpen.
-  // Simplified: if open use FolderOpen, else Folder
-  const effectiveFolderIcon = isOpen ? <FolderOpen className="h-4 w-4 mr-2 shrink-0" /> : <Folder className="h-4 w-4 mr-2 shrink-0" />;
-
+  const effectiveFolderIcon = isOpen ? <FolderOpen className="h-4 w-4 shrink-0" /> : <Folder className="h-4 w-4 shrink-0" />;
 
   return (
     <div
       className={cn(
-        "flex items-center justify-between group rounded-md text-sm font-medium",
-        isSelected ? "bg-accent text-accent-foreground" : "hover:bg-muted/50",
+        "flex items-center justify-between group text-sm font-medium rounded-md"
       )}
-      style={{ paddingLeft: `${level * 1.25 + 0.5}rem` }}
+      style={{ paddingLeft: `${level * 1.25}rem` }} 
     >
-       <Button
-        variant="ghost"
-        className="flex-grow justify-start h-9 px-2 py-1.5"
+      {/* Clickable area for folder selection & display (icon and name) */}
+      <div 
+        className={cn(
+          "flex-grow flex items-center h-9 px-2 py-1.5 rounded-md cursor-pointer truncate",
+          isSelected ? "bg-accent text-accent-foreground" : "hover:bg-muted/50"
+        )}
         onClick={() => onSelectFolder(folder.id)}
         title={folder.name}
+        role="button" 
+        tabIndex={0} 
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectFolder(folder.id); } }}
       >
-        <span className="flex items-center">
-          {hasChildren ? (
-            <button
-              onClick={handleToggleOpen}
-              className="mr-1 p-0.5 rounded hover:bg-muted/50 focus:outline-none focus:ring-1 focus:ring-ring"
-              aria-label={isOpen ? "Collapse folder" : "Expand folder"}
-            >
-              {isOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
-            </button>
-          ) : (
-            <span className="w-5 mr-1"></span> // Placeholder for alignment
-          )}
-          {effectiveFolderIcon}
-          <span className="truncate">{folder.name}</span>
-        </span>
-      </Button>
+        {/* Toggle Chevron Button */}
+        {hasChildren ? (
+          <button 
+            type="button" 
+            className="h-6 w-6 p-0.5 mr-1 shrink-0 rounded-md hover:bg-muted/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" 
+            onClick={handleToggleOpen} 
+            aria-label={isOpen ? "Collapse folder" : "Expand folder"}
+          >
+            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </button>
+        ) : (
+          <span className="w-6 mr-1 shrink-0"></span> {/* Placeholder for alignment if no children */}
+        )}
+
+        {effectiveFolderIcon}
+        <span className="truncate ml-2">{folder.name}</span>
+      </div>
       
+      {/* Delete Button (separate, at the end of the row) */}
       <TooltipProvider delayDuration={300}>
-        <div className="flex items-center shrink-0">
+        <div className="flex items-center shrink-0 ml-1 pr-1">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
