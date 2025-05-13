@@ -95,17 +95,17 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
         <p className="text-xs text-muted-foreground">Updated: {displayDate}</p>
         {file.fileSize && <p className="text-xs text-muted-foreground">Size: {(file.fileSize / 1024).toFixed(2)} KB</p>}
       </CardContent>
-      <CardFooter className="p-2 mt-auto flex items-center justify-end gap-1 bg-muted/30"> 
+      <CardFooter className="p-2 mt-auto flex items-center justify-end gap-1.5 bg-muted/30"> 
         <TooltipProvider delayDuration={300}>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="outline" 
                 onClick={() => onViewFile(file)} 
-                className="h-7 w-7 p-0 rounded" // Icon-only, square button
+                className="h-7 px-2 py-1 rounded"
                 title={`View ${file.name}`}
               >
-                <Eye /> {/* Icon size handled by button's default SVG styling */}
+                <Eye /> 
                 <span className="sr-only">View</span>
               </Button>
             </TooltipTrigger>
@@ -119,7 +119,7 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
               <Button 
                 variant="outline" 
                 onClick={() => onEditFile(file)} 
-                className="h-7 w-7 p-0 rounded" // Icon-only, square button
+                className="h-7 px-2 py-1 rounded"
                 title={`Edit ${file.name}`}
               >
                 <Pencil />
@@ -136,7 +136,7 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
               <Button 
                 variant="destructiveOutline" 
                 onClick={handleDelete} 
-                className="h-7 w-7 p-0 rounded" // Icon-only, square button
+                className="h-7 px-2 py-1 rounded"
                 disabled={file.isEncrypted}
                 title={file.isEncrypted ? "Encrypted files cannot be deleted" : `Delete file "${file.name}"`}
               >
@@ -153,3 +153,4 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
     </Card>
   );
 }
+
