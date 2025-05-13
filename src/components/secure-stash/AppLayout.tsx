@@ -1,4 +1,3 @@
-
 "use client";
 import React from 'react';
 import {
@@ -26,14 +25,16 @@ export function AppLayout() {
         className="border-r"
         side="left"
       >
-        <ShadSidebarHeader className="p-2 flex items-center justify-between">
-           <Button variant="ghost" className="flex items-center gap-2 text-lg font-semibold px-2 group-data-[collapsible=icon]:hidden" asChild>
+        <ShadSidebarHeader className="p-2 flex items-center group-data-[state=expanded]:justify-between group-data-[state=collapsed]:justify-center">
+           {/* Logo and Title - hidden when sidebar is collapsed to icon state */}
+           <Button variant="ghost" className="flex items-center gap-2 text-lg font-semibold px-2 group-data-[state=collapsed]:hidden" asChild>
              <a href="#"> {/* Link or action */}
                 <ShieldCheck className="h-6 w-6 text-primary" />
                 <span>SecureStash</span>
              </a>
            </Button>
-           <SidebarTrigger className="group-data-[collapsible=icon]:hidden" />
+           {/* This SidebarTrigger handles both collapsing and expanding the sidebar */}
+           <SidebarTrigger />
         </ShadSidebarHeader>
         <SidebarContent className="p-0">
           <AppSidebar />
