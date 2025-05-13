@@ -266,15 +266,15 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
               id="editIsEncrypted"
               checked={isEncrypted}
               onCheckedChange={(checked) => setIsEncrypted(Boolean(checked))}
-              disabled={!encryptionKey && Boolean(checked)} // Disable checking if no key, allow unchecking
+              disabled={!encryptionKey && !isEncrypted} // Disable checking if no key and not already encrypted, allow unchecking
             />
             <Label htmlFor="editIsEncrypted" className="text-sm font-medium">
               Encrypt this file
             </Label>
           </div>
-          {!encryptionKey && isEncrypted && ( // Show warning if trying to keep/make encrypted without a key
+          {!encryptionKey && isEncrypted && ( // Show warning if file is set to be encrypted but no key is available.
             <p className="text-xs text-destructive mt-1">
-              Encryption key is not set. File cannot be encrypted. Please set key or uncheck.
+              Encryption key is not set. File cannot be saved as encrypted. Please set key or uncheck encryption.
             </p>
           )}
 
