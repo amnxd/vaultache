@@ -9,7 +9,12 @@ import { Badge } from '@/components/ui/badge';
 import { FileText, FileImage, FileArchive, Link as LinkIcon, Eye, Trash2, Lock, Tag, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface FileItemCardProps {
   file: FileItemType;
@@ -18,7 +23,7 @@ interface FileItemCardProps {
 }
 
 const FileTypeIcon: React.FC<{ type: FileItemType['type'], className?: string }> = ({ type, className }) => {
-  const commonClass = cn("h-4 w-4", className); 
+  const commonClass = cn("h-5 w-5", className); 
   switch (type) {
     case 'text':
       return <FileText className={commonClass} />;
@@ -91,31 +96,59 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
         {file.fileSize && <p className="text-xs text-muted-foreground">Size: {(file.fileSize / 1024).toFixed(2)} KB</p>}
       </CardContent>
       <CardFooter className="p-2 mt-auto flex items-center justify-end gap-1 bg-muted/30"> 
-        <Button 
-          variant="outline" 
-          onClick={() => onViewFile(file)} 
-          className="h-7 px-2 text-xs rounded"
-          title={`View ${file.name}`}
-        >
-          <Eye className="h-3 w-3 sm:mr-1" /> <span className="hidden sm:inline">View</span> 
-        </Button>
-        <Button 
-          variant="outline" 
-          onClick={() => onEditFile(file)} 
-          className="h-7 px-2 text-xs rounded"
-          title={`Edit ${file.name}`}
-        >
-          <Pencil className="h-3 w-3 sm:mr-1" /> <span className="hidden sm:inline">Edit</span> 
-        </Button>
-        <Button 
-          variant="destructiveOutline" 
-          onClick={handleDelete} 
-          className="h-7 px-2 text-xs rounded"
-          disabled={file.isEncrypted}
-          title={file.isEncrypted ? "Encrypted files cannot be deleted" : `Delete file "${file.name}"`}
-        >
-          <Trash2 className="h-3 w-3 sm:mr-1" /> <span className="hidden sm:inline">Delete</span>
-        </Button>
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="outline" 
+                onClick={() => onViewFile(file)} 
+                className="h-7 w-7 p-0 rounded" // Icon-only, square button
+                title={`View ${file.name}`}
+              >
+                <Eye /> {/* Icon size handled by button's default SVG styling */}
+                <span className="sr-only">View</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>View</p>
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="outline" 
+                onClick={() => onEditFile(file)} 
+                className="h-7 w-7 p-0 rounded" // Icon-only, square button
+                title={`Edit ${file.name}`}
+              >
+                <Pencil />
+                <span className="sr-only">Edit</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Edit</p>
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="destructiveOutline" 
+                onClick={handleDelete} 
+                className="h-7 w-7 p-0 rounded" // Icon-only, square button
+                disabled={file.isEncrypted}
+                title={file.isEncrypted ? "Encrypted files cannot be deleted" : `Delete file "${file.name}"`}
+              >
+                <Trash2 />
+                <span className="sr-only">Delete</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Delete</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </CardFooter>
     </Card>
   );
