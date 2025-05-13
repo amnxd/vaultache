@@ -16,12 +16,23 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pencil, Sparkles, Loader2, AlertTriangle, KeyRound, Unlock, Lock } from 'lucide-react';
+import { Pencil, Sparkles, Loader2, AlertTriangle, KeyRound, Unlock, Lock, Trash2 } from 'lucide-react';
 import { useAppContext } from '@/hooks/useAppContext';
 import type { FileType, FileItem } from '@/lib/types';
 import { TagInput } from './TagInput';
 import { suggestTags } from '@/ai/flows/suggest-tags';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface EditFileDialogProps {
   isOpen: boolean;
@@ -30,7 +41,7 @@ interface EditFileDialogProps {
 }
 
 export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialogProps) {
-  const { updateFile, decryptFileContent } = useAppContext();
+  const { updateFile, decryptFileContent, deleteFile } = useAppContext();
   const { toast } = useToast();
 
   const [fileName, setFileName] = useState('');
@@ -182,6 +193,21 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
     
     updateFile(fileToEdit.id, updatesForAppCtx);
     toast({ title: `File "${updatesForAppCtx.name}" updated successfully.`});
+    setIsOpen(false);
+  };
+
+  const handleDeleteFile = () => {
+    if (!fileToEdit) return;
+    if (fileToEdit.isEncrypted) {
+      toast({
+        title: "Action Prohibited",
+        description: "Encrypted files cannot be deleted directly from here. Please decrypt or change encryption status first via Edit actions on the card.",
+        variant: "destructive",
+      });
+      return;
+    }
+    deleteFile(fileToEdit.id);
+    toast({ title: `File "${fileToEdit.name}" deleted successfully.` });
     setIsOpen(false);
   };
 
@@ -354,13 +380,44 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
           </div>
 
         </form>
-        <DialogFooter className="mt-auto pt-4 border-t">
-          <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-          <Button type="submit" onClick={handleSubmit} 
-            disabled={ (isEncrypted && !currentEncryptionPassword.trim()) || (fileToEdit.isEncrypted && !isContentDecrypted && !isEncrypted && fileToEdit.type !== 'image' && fileToEdit.type !== 'document' && fileToEdit.type !== 'video' ) }
-          >
-            Save Changes
-          </Button>
+        <DialogFooter className="mt-auto pt-4 border-t sm:justify-between">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                type="button" 
+                variant="destructiveOutline" 
+                className="w-full sm:w-auto mb-2 sm:mb-0 sm:mr-auto"
+                disabled={fileToEdit.isEncrypted}
+                title={fileToEdit.isEncrypted ? "Encrypted files cannot be deleted from here" : "Delete this file"}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete File
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the file "{fileToEdit.name}".
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteFile} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                  Yes, delete file
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <div className="flex flex-col-reverse sm:flex-row sm:gap-2 gap-2">
+            <DialogClose asChild>
+              <Button type="button" variant="outline" className="w-full sm:w-auto">Cancel</Button>
+            </DialogClose>
+            <Button type="submit" onClick={handleSubmit} className="w-full sm:w-auto"
+              disabled={ (isEncrypted && !currentEncryptionPassword.trim()) || (fileToEdit.isEncrypted && !isContentDecrypted && !isEncrypted && fileToEdit.type !== 'image' && fileToEdit.type !== 'document' && fileToEdit.type !== 'video' ) }
+            >
+              Save Changes
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
