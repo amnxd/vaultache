@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FileText, FileImage, FileArchive, Link as LinkIcon, Eye, Trash2, Lock, Unlock, Tag, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+
 
 interface FileItemCardProps {
   file: FileItemType;
@@ -33,17 +35,27 @@ const FileTypeIcon: React.FC<{ type: FileItemType['type'], className?: string }>
 
 export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps) {
   const { deleteFile, encryptionKey } = useAppContext();
+  const { toast } = useToast();
 
   const handleDelete = () => {
+    if (file.isEncrypted) {
+      toast({
+        title: "Action Prohibited",
+        description: "Encrypted files cannot be deleted directly.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (window.confirm(`Are you sure you want to delete file "${file.name}"?`)) {
       deleteFile(file.id);
+      toast({ title: `File "${file.name}" deleted.` });
     }
   };
   
   const displayDate = new Date(file.updatedAt).toLocaleDateString();
 
   return (
-    <Card className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-200">
+    <Card className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-200 h-full">
       <CardHeader className="p-3"> 
         <CardTitle className="flex items-center justify-between text-base"> 
           <div className="flex items-center gap-2 truncate">
@@ -77,11 +89,12 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
         <p className="text-xs text-muted-foreground">Updated: {displayDate}</p>
         {file.fileSize && <p className="text-xs text-muted-foreground">Size: {(file.fileSize / 1024).toFixed(2)} KB</p>}
       </CardContent>
-      <CardFooter className="p-2 flex flex-wrap justify-end gap-1 bg-muted/30"> 
+      <CardFooter className="p-2 mt-auto flex flex-wrap justify-end gap-1 bg-muted/30"> 
         <Button 
           variant="outline" 
           onClick={() => onViewFile(file)} 
           className="h-7 px-2 text-xs rounded flex-1 min-w-[calc(33.33%-0.25rem)] sm:flex-none sm:min-w-0"
+          title={`View ${file.name}`}
         >
           <Eye className="h-3 w-3 sm:mr-1" /> <span className="hidden sm:inline">View</span> 
         </Button>
@@ -89,6 +102,7 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
           variant="outline" 
           onClick={() => onEditFile(file)} 
           className="h-7 px-2 text-xs rounded flex-1 min-w-[calc(33.33%-0.25rem)] sm:flex-none sm:min-w-0"
+          title={`Edit ${file.name}`}
         >
           <Pencil className="h-3 w-3 sm:mr-1" /> <span className="hidden sm:inline">Edit</span> 
         </Button>
@@ -96,6 +110,8 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
           variant="destructiveOutline" 
           onClick={handleDelete} 
           className="h-7 px-2 text-xs rounded flex-1 min-w-[calc(33.33%-0.25rem)] sm:flex-none sm:min-w-0"
+          disabled={file.isEncrypted}
+          title={file.isEncrypted ? "Encrypted files cannot be deleted" : `Delete file "${file.name}"`}
         >
           <Trash2 className="h-3 w-3 sm:mr-1" /> <span className="hidden sm:inline">Delete</span>
         </Button>
