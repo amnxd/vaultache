@@ -15,6 +15,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface FileItemCardProps {
   file: FileItemType;
@@ -43,22 +54,6 @@ const FileTypeIcon: React.FC<{ type: FileItemType['type'], className?: string }>
 export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps) {
   const { deleteFile } = useAppContext();
   const { toast } = useToast();
-
-  const handleDelete = () => {
-    if (file.isEncrypted) {
-      toast({
-        title: "Action Prohibited",
-        description: "Encrypted files cannot be deleted directly. Please decrypt or change encryption status first via Edit.",
-        variant: "destructive",
-      });
-      return;
-    }
-    // Confirmation dialog before deleting
-    if (window.confirm(`Are you sure you want to delete file "${file.name}"? This action cannot be undone.`)) {
-      deleteFile(file.id);
-      toast({ title: `File "${file.name}" deleted successfully.` });
-    }
-  };
   
   const displayDate = new Date(file.updatedAt).toLocaleDateString();
 
@@ -105,7 +100,6 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
                 variant="outline" 
                 onClick={() => onViewFile(file)} 
                 className="h-7 px-2 py-1 rounded"
-                title={`View ${file.name}`}
               >
                 <Eye className="h-4 w-4" /> 
                 <span className="sr-only">View</span>
@@ -122,7 +116,6 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
                 variant="outline" 
                 onClick={() => onEditFile(file)} 
                 className="h-7 px-2 py-1 rounded"
-                title={`Edit ${file.name}`}
               >
                 <Pencil className="h-4 w-4" />
                 <span className="sr-only">Edit</span>
@@ -133,26 +126,48 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
             </TooltipContent>
           </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="destructiveOutline" 
-                onClick={handleDelete} 
-                className="h-7 px-2 py-1 rounded"
-                disabled={file.isEncrypted}
-                title={file.isEncrypted ? "Encrypted files cannot be deleted" : `Delete file "${file.name}"`}
-              >
-                <Trash2 className="h-4 w-4" />
-                <span className="sr-only">Delete</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <p>Delete</p>
-            </TooltipContent>
-          </Tooltip>
+          <AlertDialog>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    variant="destructiveOutline" 
+                    className="h-7 px-2 py-1 rounded"
+                    disabled={file.isEncrypted}
+                    title={file.isEncrypted ? "File is encrypted. Decrypt via Edit dialog to enable deletion." : `Delete file "${file.name}"`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="sr-only">Delete</span>
+                  </Button>
+                </AlertDialogTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>{file.isEncrypted ? "Decrypt to enable delete" : "Delete file"}</p>
+              </TooltipContent>
+            </Tooltip>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the file "{file.name}".
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    deleteFile(file.id);
+                    toast({ title: `File "${file.name}" deleted successfully.` });
+                  }}
+                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                >
+                  Yes, delete file
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </TooltipProvider>
       </CardFooter>
     </Card>
   );
 }
-
