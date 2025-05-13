@@ -22,5 +22,6 @@ export interface FolderItem {
   parentId: string | null;
   createdAt: number;
   updatedAt: number;
+  isOpen?: boolean; // Added for expand/collapse state
 }
 

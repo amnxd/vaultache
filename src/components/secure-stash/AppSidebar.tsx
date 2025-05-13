@@ -11,25 +11,32 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
 export function AppSidebar() {
-  const { folders, currentFolderId, setCurrentFolderId } = useAppContext();
+  const { folders, currentFolderId, setCurrentFolderId, toggleFolderOpen } = useAppContext();
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
-
-  const rootFolders = folders.filter(f => f.parentId === null);
 
   const renderFolders = (parentId: string | null, level: number): JSX.Element[] => {
     return folders
       .filter(folder => folder.parentId === parentId)
-      .sort((a,b) => a.name.localeCompare(b.name))
-      .flatMap(folder => [
-        <FolderTreeItem
-          key={folder.id}
-          folder={folder}
-          level={level}
-          onSelectFolder={setCurrentFolderId}
-          isSelected={currentFolderId === folder.id}
-        />,
-        ...renderFolders(folder.id, level + 1)
-      ]);
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .flatMap(folder => {
+        const isFolderOpen = folder.isOpen === undefined ? true : folder.isOpen;
+        const hasChildren = folders.some(f => f.parentId === folder.id);
+        const childrenElements = isFolderOpen && hasChildren ? renderFolders(folder.id, level + 1) : [];
+        
+        return [
+          <FolderTreeItem
+            key={folder.id}
+            folder={folder}
+            level={level}
+            onSelectFolder={setCurrentFolderId}
+            isSelected={currentFolderId === folder.id}
+            toggleFolderOpen={() => toggleFolderOpen(folder.id)}
+            isOpen={isFolderOpen}
+            hasChildren={hasChildren}
+          />,
+          ...childrenElements
+        ];
+      });
   };
   
   return (
@@ -63,7 +70,7 @@ export function AppSidebar() {
       <CreateFolderDialog
         isOpen={isCreateFolderOpen}
         setIsOpen={setIsCreateFolderOpen}
-        parentId={currentFolderId} // New folders are created inside the current folder by default, or root
+        parentId={currentFolderId}
       />
     </div>
   );

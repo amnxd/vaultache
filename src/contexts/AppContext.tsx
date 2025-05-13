@@ -20,7 +20,7 @@ interface AppContextType {
   getSubfoldersForCurrentFolder: () => FolderItem[];
   getFolderPath: (folderId: string | null) => FolderItem[];
   decryptFileContent: (file: FileItem, passwordAttempt: string) => string;
-  // encryptFileContent is now mostly internal to addFile/updateFile or called directly with a key
+  toggleFolderOpen: (folderId: string) => void; // Added for expand/collapse
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -33,7 +33,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     try {
       const storedFolders = localStorage.getItem('secureStashFolders');
-      if (storedFolders) setFolders(JSON.parse(storedFolders));
+      if (storedFolders) {
+        const parsedFolders: FolderItem[] = JSON.parse(storedFolders);
+        // Ensure isOpen defaults to true for folders loaded from storage that might not have this property
+        setFolders(parsedFolders.map(f => ({ ...f, isOpen: f.isOpen === undefined ? true : f.isOpen })));
+      }
       const storedFiles = localStorage.getItem('secureStashFiles');
       if (storedFiles) setFiles(JSON.parse(storedFiles));
     } catch (error) {
@@ -64,6 +68,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       parentId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      isOpen: true, // New folders are open by default
     };
     setFolders((prev) => [...prev, newFolder]);
   }, []);
@@ -77,9 +82,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     if (restOfFileData.isEncrypted && encryptionPassword) {
       encryptedContentVal = encryptText(restOfFileData.content, encryptionPassword);
-      contentVal = ""; // Clear raw content if encrypted
+      contentVal = ""; 
     } else if (restOfFileData.isEncrypted && !encryptionPassword) {
-      // Handle case where isEncrypted is true but no password provided - perhaps treat as not encrypted or throw error
       console.warn("File marked for encryption but no password provided. Storing as unencrypted.");
       restOfFileData.isEncrypted = false;
     }
@@ -111,25 +115,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const keyToUse = newEncryptionPassword !== undefined ? newEncryptionPassword : file.encryptionPassword;
           if (!keyToUse) {
             console.error("Cannot encrypt file without a password during update.");
-            // Revert to unencrypted if no key and content might be placeholder
              updatedFile.isEncrypted = false; 
-             updatedFile.content = contentToProcess; // Keep original or new placeholder
+             updatedFile.content = contentToProcess; 
              updatedFile.encryptedContent = undefined;
              updatedFile.encryptionPassword = undefined;
           } else {
-             // For placeholder types, the content to encrypt is the placeholder message itself if newContent is not provided.
-             // If newContent IS provided, it's the actual content the user edited (e.g. image URL, doc text)
             const sourceForEncryption = (newContent !== undefined) ? newContent :
                                        ( (file.type === 'image' || file.type === 'document' || file.type === 'video') ? file.content : contentToProcess );
 
-
             updatedFile.encryptedContent = encryptText(sourceForEncryption, keyToUse);
-            updatedFile.content = (file.type === 'image' || file.type === 'document' || file.type === 'video') ? sourceForEncryption : ""; // Retain placeholder if it was encrypted, else clear
+            updatedFile.content = (file.type === 'image' || file.type === 'document' || file.type === 'video') ? sourceForEncryption : "";
             updatedFile.isEncrypted = true;
             updatedFile.encryptionPassword = keyToUse; 
           }
-        } else { // File is to be unencrypted
-           // If newContent is provided, use it. Otherwise, use existing file.content (which should be placeholder if it was one)
+        } else { 
           updatedFile.content = newContent !== undefined ? newContent : file.content;
           updatedFile.isEncrypted = false;
           updatedFile.encryptedContent = undefined;
@@ -217,13 +216,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return "[Decryption Failed - Invalid password or corrupt data]";
       }
     }
-    // Fallback for image/document/video placeholders if they were marked encrypted and encryptedContent is somehow missing
     if (file.type === 'image' || file.type === 'document' || file.type === 'video') {
-        // If it was encrypted, its 'content' field might be empty or hold the original placeholder
-        // that was then encrypted. If encryptedContent is missing, this is a fallback.
         return file.content || "[Encrypted - Content data missing]";
     }
     return "[Encrypted - Content unavailable or error in decryption logic]";
+  }, []);
+
+  const toggleFolderOpen = useCallback((folderId: string) => {
+    setFolders(prevFolders => 
+      prevFolders.map(folder => 
+        folder.id === folderId ? { ...folder, isOpen: !(folder.isOpen === undefined ? true : folder.isOpen) } : folder
+      )
+    );
   }, []);
 
 
@@ -243,6 +247,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       getSubfoldersForCurrentFolder,
       getFolderPath,
       decryptFileContent,
+      toggleFolderOpen, // Expose the new function
     }}>
       {children}
     </AppContext.Provider>
