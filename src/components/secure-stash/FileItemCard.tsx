@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FileText, FileImage, FileArchive, Link as LinkIcon, Eye, Trash2, Lock, Unlock, Tag } from 'lucide-react'; // Changed FileCode2 to FileArchive
+import { cn } from '@/lib/utils';
 
 interface FileItemCardProps {
   file: FileItemType;
