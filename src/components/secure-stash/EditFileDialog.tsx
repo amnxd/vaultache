@@ -198,14 +198,8 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
 
   const handleDeleteFile = () => {
     if (!fileToEdit) return;
-    if (fileToEdit.isEncrypted) {
-      toast({
-        title: "Action Prohibited",
-        description: "Encrypted files cannot be deleted directly from here. Please decrypt or change encryption status first via Edit actions on the card.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // The button's disabled state should prevent this function from being called
+    // if the file is encrypted and not decrypted.
     deleteFile(fileToEdit.id);
     toast({ title: `File "${fileToEdit.name}" deleted successfully.` });
     setIsOpen(false);
@@ -217,6 +211,8 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
 
 
   if (!fileToEdit) return null;
+
+  const isDeleteDisabled = fileToEdit.isEncrypted && !isContentDecrypted;
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -387,8 +383,8 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
                 type="button" 
                 variant="destructiveOutline" 
                 className="w-full sm:w-auto mb-2 sm:mb-0 sm:mr-auto"
-                disabled={fileToEdit.isEncrypted}
-                title={fileToEdit.isEncrypted ? "Encrypted files cannot be deleted from here" : "Delete this file"}
+                disabled={isDeleteDisabled}
+                title={isDeleteDisabled ? "Decrypt file to enable deletion" : `Delete file "${fileToEdit.name}"`}
               >
                 <Trash2 className="mr-2 h-4 w-4" /> Delete File
               </Button>
