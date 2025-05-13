@@ -46,9 +46,10 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
       });
       return;
     }
-    if (window.confirm(`Are you sure you want to delete file "${file.name}"?`)) {
+    // Confirmation dialog before deleting
+    if (window.confirm(`Are you sure you want to delete file "${file.name}"? This action cannot be undone.`)) {
       deleteFile(file.id);
-      toast({ title: `File "${file.name}" deleted.` });
+      toast({ title: `File "${file.name}" deleted successfully.` });
     }
   };
   
@@ -89,11 +90,11 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
         <p className="text-xs text-muted-foreground">Updated: {displayDate}</p>
         {file.fileSize && <p className="text-xs text-muted-foreground">Size: {(file.fileSize / 1024).toFixed(2)} KB</p>}
       </CardContent>
-      <CardFooter className="p-2 mt-auto flex flex-wrap justify-end gap-1 bg-muted/30"> 
+      <CardFooter className="p-2 mt-auto flex items-center justify-end gap-1 bg-muted/30"> 
         <Button 
           variant="outline" 
           onClick={() => onViewFile(file)} 
-          className="h-7 px-2 text-xs rounded flex-1 min-w-[calc(33.33%-0.25rem)] sm:flex-none sm:min-w-0"
+          className="h-7 px-2 text-xs rounded"
           title={`View ${file.name}`}
         >
           <Eye className="h-3 w-3 sm:mr-1" /> <span className="hidden sm:inline">View</span> 
@@ -101,7 +102,7 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
         <Button 
           variant="outline" 
           onClick={() => onEditFile(file)} 
-          className="h-7 px-2 text-xs rounded flex-1 min-w-[calc(33.33%-0.25rem)] sm:flex-none sm:min-w-0"
+          className="h-7 px-2 text-xs rounded"
           title={`Edit ${file.name}`}
         >
           <Pencil className="h-3 w-3 sm:mr-1" /> <span className="hidden sm:inline">Edit</span> 
@@ -109,7 +110,7 @@ export function FileItemCard({ file, onViewFile, onEditFile }: FileItemCardProps
         <Button 
           variant="destructiveOutline" 
           onClick={handleDelete} 
-          className="h-7 px-2 text-xs rounded flex-1 min-w-[calc(33.33%-0.25rem)] sm:flex-none sm:min-w-0"
+          className="h-7 px-2 text-xs rounded"
           disabled={file.isEncrypted}
           title={file.isEncrypted ? "Encrypted files cannot be deleted" : `Delete file "${file.name}"`}
         >
