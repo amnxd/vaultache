@@ -8,7 +8,6 @@ This project allows you to build and deploy web applications with the power of N
 
 1.  **Install Dependencies:** Open your terminal or command prompt and navigate to the project directory. Run the following command to install all the necessary libraries:
 
-```
 
 2.  **Configure Firebase:**
     *   Create a new project in the [Firebase Console](https://console.firebase.google.com/).
@@ -27,5 +26,6 @@ This project allows you to build and deploy web applications with the power of N
 
 3.  **Run the Development Server:**
 
-```bash
+```
 npm run dev
+```
