@@ -41,18 +41,18 @@ interface EditFileDialogProps {
 }
 
 export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialogProps) {
-  const { updateFile, decryptFileContent, deleteFile } = useAppContext(); // decryptFileContent now verifies password
+  const { updateFile, decryptFileContent, deleteFile } = useAppContext(); 
   const { toast } = useToast();
 
   const [fileName, setFileName] = useState('');
   const [fileType, setFileType] = useState<FileType>('text');
-  const [fileContent, setFileContent] = useState(''); // Holds plaintext content for editing if "unlocked"
+  const [fileContent, setFileContent] = useState(''); 
   const [tags, setTags] = useState<string[]>([]);
   const [isEncrypted, setIsEncrypted] = useState(false); // Target "locked" state for saving
-  const [currentEncryptionPassword, setCurrentEncryptionPassword] = useState(''); // For "unlocking" or setting new lock password
+  const [currentEncryptionPassword, setCurrentEncryptionPassword] = useState(''); 
   
-  const [isContentUnlocked, setIsContentUnlocked] = useState(false); // Was isContentDecrypted
-  const [unlockError, setUnlockError] = useState<string | null>(null); // Was decryptionError
+  const [isContentUnlocked, setIsContentUnlocked] = useState(false); 
+  const [unlockError, setUnlockError] = useState<string | null>(null); 
 
   const [isSuggestingTags, setIsSuggestingTags] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -73,17 +73,19 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
     if (fileToEdit) {
       setFileName(fileToEdit.name);
       setFileType(fileToEdit.type);
-      setIsEncrypted(fileToEdit.isEncrypted); // Current "locked" state
+      setIsEncrypted(fileToEdit.isEncrypted); 
       setTags([...fileToEdit.tags]);
 
-      if (!fileToEdit.isEncrypted) { // If not "locked"
+      if (!fileToEdit.isEncrypted) { 
         setFileContent(fileToEdit.content);
         setIsContentUnlocked(true);
         setUnlockError(null);
-      } else { // File is "locked", content needs unlocking
+      } else { 
         setFileContent(''); 
         setIsContentUnlocked(false);
       }
+      // Clear password field when dialog opens for a locked file for security/UX
+      setCurrentEncryptionPassword('');
     }
   }, [fileToEdit]);
 
@@ -102,7 +104,7 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
       setUnlockError("Password is required to unlock the file content.");
       return;
     }
-    // decryptFileContent now verifies password and returns original content if correct
+    
     const unlockedContent = decryptFileContent(fileToEdit, currentEncryptionPassword); 
     
     if (unlockedContent.startsWith("[Locked -") || unlockedContent.startsWith("[Unlock Failed -")) {
@@ -110,7 +112,7 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
       setIsContentUnlocked(false);
       setUnlockError(unlockedContent); 
     } else {
-      setFileContent(unlockedContent); // Original content
+      setFileContent(unlockedContent); 
       setIsContentUnlocked(true);
       setUnlockError(null);
       toast({ title: "Content unlocked for editing." });
@@ -160,32 +162,36 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
       return;
     }
 
-    if (isEncrypted && !currentEncryptionPassword.trim()) { // If target state is "locked"
-      toast({ title: "Password is required to save as locked.", variant: "destructive" });
-      return;
+    // If target state is "locked" (isEncrypted is true) AND no password is provided in currentEncryptionPassword
+    if (isEncrypted && !currentEncryptionPassword.trim()) {
+      // Check if it was originally locked and content wasn't unlocked, and we're trying to save it as locked (isEncrypted = true)
+      // In this case, we can assume the user wants to use the original password (which we don't re-verify here for simplicity for metadata-only changes)
+      // However, if they are locking an unlocked file, or re-locking an unlocked file, password IS required.
+      if (!fileToEdit.isEncrypted || (fileToEdit.isEncrypted && isContentUnlocked)) {
+         toast({ title: "Password is required to save as locked.", variant: "destructive" });
+         return;
+      }
+      // If it was locked, content wasn't unlocked, and isEncrypted is true (target is locked), allow saving metadata changes without re-entering password
+      // The original password (fileToEdit.encryptionPassword) will be preserved implicitly by not providing newEncryptionPassword.
     }
     
-    // If file was locked, and user wants to keep it locked OR change content,
-    // they must have unlocked it or provided a (potentially new) password for the target locked state.
-    if (fileToEdit.isEncrypted && !isContentUnlocked && isEncrypted && !currentEncryptionPassword.trim()){
-      // This means it was locked, user didn't unlock, wants to save as locked, but didn't provide a password here.
-      // This implies they want to use the old password, but we need it re-confirmed if content might change.
-      // For simplicity now: if they are keeping it locked and didn't unlock, they must provide the password for saving.
-      // This covers changing name/tags for a locked file without viewing content, or relocking with new password.
-       toast({ title: "Password required to re-lock or modify a locked file.", variant: "destructive" });
-       return;
-    }
-
-
-    const updatesForAppCtx: Partial<Omit<FileItem, 'id' | 'createdAt' | 'folderId'>> & { newContent: string, newEncryptionPassword?: string, newIsEncrypted: boolean } = {
+    const updatesForAppCtx: Partial<Omit<FileItem, 'id' | 'createdAt' | 'folderId'>> & { newContent?: string, newEncryptionPassword?: string, newIsEncrypted: boolean } = {
       name: fileName.trim(),
       tags,
-      newContent: fileContent, // Always pass the current content from the form (which is plaintext if unlocked)
-      newIsEncrypted: isEncrypted, // Target "locked" state
+      newContent: isContentUnlocked ? fileContent : fileToEdit.content, // Pass original content if not unlocked, otherwise pass edited
+      newIsEncrypted: isEncrypted, 
     };
 
-    if (isEncrypted) { // If target state is "locked"
-      updatesForAppCtx.newEncryptionPassword = currentEncryptionPassword;
+    if (isEncrypted) { 
+      // If it was originally locked, content wasn't unlocked, and currentEncryptionPassword is empty,
+      // it implies we keep the original password. Otherwise, use currentEncryptionPassword.
+      if (fileToEdit.isEncrypted && !isContentUnlocked && !currentEncryptionPassword.trim()) {
+        updatesForAppCtx.newEncryptionPassword = fileToEdit.encryptionPassword; // Keep old password
+      } else if (currentEncryptionPassword.trim()){ // If a password was provided (for locking a new file, or re-locking)
+        updatesForAppCtx.newEncryptionPassword = currentEncryptionPassword;
+      } else if (!fileToEdit.isEncrypted) { // Locking an unlocked file for the first time, password must be there (caught by earlier check)
+         // This case should be covered by the initial check
+      }
     }
     
     updateFile(fileToEdit.id, updatesForAppCtx);
@@ -205,13 +211,24 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
   };
 
   const canSuggestTags = isContentUnlocked && (fileType === 'text' || fileType === 'link') && fileContent.trim().length > 0;
-  const showContentFields = isContentUnlocked || !fileToEdit?.isEncrypted; // Show if unlocked or never was locked
+  const showContentFields = isContentUnlocked || !fileToEdit?.isEncrypted; 
   const requirePasswordForUnlocking = fileToEdit?.isEncrypted && !isContentUnlocked;
 
 
   if (!fileToEdit) return null;
 
   const isDeleteDisabled = fileToEdit.isEncrypted && !isContentUnlocked;
+
+  // Disable save if:
+  // 1. Target is locked (isEncrypted=true)
+  // 2. AND it was NOT originally locked (fileToEdit.isEncrypted=false) OR content IS unlocked (isContentUnlocked=true)
+  //    (meaning we are either locking for the first time, or re-locking an unlocked file)
+  // 3. AND no password is provided (currentEncryptionPassword is empty)
+  const isSaveDisabled = 
+    (isEncrypted && (!fileToEdit.isEncrypted || isContentUnlocked) && !currentEncryptionPassword.trim()) ||
+    // OR if it was locked, content not unlocked, and user tries to save as unlocked (without unlocking first)
+    (fileToEdit.isEncrypted && !isContentUnlocked && !isEncrypted );
+
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -303,7 +320,7 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
               )}
             </>
           )}
-           {!showContentFields && fileToEdit.isEncrypted && ( // isEncrypted means "isLocked"
+           {!showContentFields && fileToEdit.isEncrypted && ( 
             <div className="p-3 my-2 border rounded-md bg-muted/20 text-sm text-muted-foreground flex items-center gap-2">
                 <Lock className="h-4 w-4"/> Content is locked. Unlock above to edit.
             </div>
@@ -323,28 +340,29 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
 
           <div className="space-y-2 mt-4 p-3 border rounded-md bg-muted/10">
             <div className="flex items-center space-x-2">
-                <Checkbox id="editIsEncrypted" checked={isEncrypted} // isEncrypted means "isLocked"
+                <Checkbox id="editIsEncrypted" checked={isEncrypted} 
                 onCheckedChange={(checkedSt) => {
                     const newCheckedState = Boolean(checkedSt);
                     setIsEncrypted(newCheckedState);
                     if (!newCheckedState) { 
-                         if (fileToEdit.isEncrypted && !isContentUnlocked) { // If was locked and not unlocked
+                         if (fileToEdit.isEncrypted && !isContentUnlocked) { 
                            toast({title: "Unlock Content First", description: "To save as unlocked, please unlock the content first using its password.", variant:"destructive"});
-                           setIsEncrypted(true); // Revert checkbox
+                           setIsEncrypted(true); 
                            return;
                          }
                     }
                 }}
                 />
                 <Label htmlFor="editIsEncrypted" className="text-sm font-medium">
-                Lock this file on save
+                  {fileToEdit.isEncrypted ? "Keep file locked" : "Lock this file on save"}
                 </Label>
             </div>
 
-            {isEncrypted && ( // If target state is "locked"
+            {isEncrypted && ( 
                 <div className="mt-2 space-y-1">
                 <Label htmlFor="saveEncryptionPassword">
-                    {fileToEdit.isEncrypted && isContentUnlocked ? "New or Existing Password for Lock" : "Password for Locking"}
+                    {/* Label changes based on whether it was originally locked AND content is now unlocked vs. locking for first time */}
+                    {fileToEdit.isEncrypted && isContentUnlocked ? "Password to re-lock (current or new)" : "Password for Locking"}
                 </Label>
                 <div className="relative">
                     <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -354,12 +372,16 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
                     value={currentEncryptionPassword}
                     onChange={(e) => setCurrentEncryptionPassword(e.target.value)}
                     placeholder="Enter password for locking"
-                    required={isEncrypted}
+                    // Required if target is locked AND (it wasn't locked before OR content is unlocked)
+                    // Not required if it was locked, content not unlocked, and we are keeping it locked (implies using old password)
+                    required={isEncrypted && (!fileToEdit.isEncrypted || isContentUnlocked)}
                     className="pl-10"
                     />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                    {fileToEdit.isEncrypted && isContentUnlocked ? "Enter original password to re-lock, or a new one to change it." : "This password will be required to view/edit."}
+                    {fileToEdit.isEncrypted && isContentUnlocked 
+                      ? "Enter original password to re-lock, or a new one to change it." 
+                      : "This password will be used to lock the file and will be required to view/edit it later."}
                 </p>
                 </div>
             )}
@@ -404,9 +426,7 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
               <Button type="button" variant="outline" className="w-full sm:w-auto">Cancel</Button>
             </DialogClose>
             <Button type="submit" onClick={handleSubmit} className="w-full sm:w-auto"
-              // Disable save if: target is locked AND no password provided
-              // OR if it was locked, not unlocked, and user tries to save as unlocked (without unlocking first)
-              disabled={ (isEncrypted && !currentEncryptionPassword.trim()) || (fileToEdit.isEncrypted && !isContentUnlocked && !isEncrypted ) }
+              disabled={isSaveDisabled}
             >
               Save Changes
             </Button>
@@ -416,3 +436,4 @@ export function EditFileDialog({ isOpen, setIsOpen, fileToEdit }: EditFileDialog
     </Dialog>
   );
 }
+
