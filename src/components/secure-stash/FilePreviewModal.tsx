@@ -27,53 +27,52 @@ interface FilePreviewModalProps {
 }
 
 export function FilePreviewModal({ file, isOpen, setIsOpen }: FilePreviewModalProps) {
-  const { decryptFileContent } = useAppContext();
+  const { decryptFileContent } = useAppContext(); // decryptFileContent now verifies password
   const [passwordAttempt, setPasswordAttempt] = useState('');
   const [displayedContent, setDisplayedContent] = useState('');
-  const [decryptionError, setDecryptionError] = useState<string | null>(null);
-  const [isContentReady, setIsContentReady] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null); // Was decryptionError
+  const [isContentReady, setIsContentReady] = useState(false); // True if content is ready to be displayed (unlocked or not locked)
 
 
   useEffect(() => {
     if (isOpen && file) {
-      if (!file.isEncrypted) {
+      if (!file.isEncrypted) { // If not "locked"
         setDisplayedContent(file.content);
         setIsContentReady(true);
-        setDecryptionError(null);
-      } else {
-        // For encrypted files, clear previous state, wait for password
+        setUnlockError(null);
+      } else { // File is "locked", wait for password
         setDisplayedContent('');
         setIsContentReady(false);
-        setDecryptionError(null); 
+        setUnlockError(null); 
       }
-      setPasswordAttempt(''); // Reset password field on open or file change
+      setPasswordAttempt(''); 
     } else if (!isOpen) {
-        // Reset all state on close
         setDisplayedContent('');
         setPasswordAttempt('');
-        setDecryptionError(null);
+        setUnlockError(null);
         setIsContentReady(false);
     }
   }, [isOpen, file]);
 
-  const handleDecryptAndShow = () => {
-    if (!file || !file.isEncrypted) return;
+  const handleUnlockAndShow = () => {
+    if (!file || !file.isEncrypted) return; // Should not happen if UI is correct
     if (!passwordAttempt) {
-      setDecryptionError("Password is required to view encrypted content.");
+      setUnlockError("Password is required to view locked content.");
       setIsContentReady(false);
       return;
     }
 
-    const decrypted = decryptFileContent(file, passwordAttempt);
+    // decryptFileContent now verifies password and returns original content if correct
+    const unlockedContent = decryptFileContent(file, passwordAttempt); 
     
-    if (decrypted.startsWith("[Decryption Failed") || decrypted.startsWith("[Encrypted -")) {
+    if (unlockedContent.startsWith("[Locked -") || unlockedContent.startsWith("[Unlock Failed -")) {
       setDisplayedContent('');
-      setDecryptionError(decrypted);
+      setUnlockError(unlockedContent);
       setIsContentReady(false);
     } else {
-      setDisplayedContent(decrypted);
+      setDisplayedContent(unlockedContent); // Original content
       setIsContentReady(true);
-      setDecryptionError(null);
+      setUnlockError(null);
     }
   };
 
@@ -84,7 +83,7 @@ export function FilePreviewModal({ file, isOpen, setIsOpen }: FilePreviewModalPr
       <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="truncate flex items-center gap-2">
-            {file.isEncrypted ? <Lock className="h-5 w-5 text-orange-500 shrink-0" /> : null}
+            {file.isEncrypted ? <Lock className="h-5 w-5 text-orange-500 shrink-0" /> : null} {/* isEncrypted means "isLocked" */}
             {file.name}
           </DialogTitle>
           <DialogDescription>
@@ -92,7 +91,7 @@ export function FilePreviewModal({ file, isOpen, setIsOpen }: FilePreviewModalPr
           </DialogDescription>
         </DialogHeader>
 
-        {file.isEncrypted && !isContentReady && (
+        {file.isEncrypted && !isContentReady && ( // If "locked" and content not yet "unlocked"
           <div className="my-4 p-4 border border-dashed rounded-md space-y-2 bg-secondary/50">
             <Label htmlFor="previewPassword">Enter Password to View Content</Label>
             <div className="flex items-center gap-2">
@@ -104,23 +103,23 @@ export function FilePreviewModal({ file, isOpen, setIsOpen }: FilePreviewModalPr
                   value={passwordAttempt}
                   onChange={(e) => {
                     setPasswordAttempt(e.target.value);
-                    if (decryptionError) setDecryptionError(null); // Clear error on new input
+                    if (unlockError) setUnlockError(null); 
                   }}
                   placeholder="File password"
                   className="pl-10"
                 />
               </div>
-              <Button onClick={handleDecryptAndShow} variant="outline" size="sm">
+              <Button onClick={handleUnlockAndShow} variant="outline" size="sm">
                 <Unlock className="mr-2 h-4 w-4" /> View Content
               </Button>
             </div>
-            {decryptionError && <p className="text-sm text-destructive mt-1 flex items-center"><AlertTriangle className="h-4 w-4 mr-1"/>{decryptionError}</p>}
+            {unlockError && <p className="text-sm text-destructive mt-1 flex items-center"><AlertTriangle className="h-4 w-4 mr-1"/>{unlockError}</p>}
           </div>
         )}
 
         <ScrollArea className="flex-grow p-1 pr-3 my-4 border rounded-md">
           <div className="p-4 min-h-[200px] whitespace-pre-wrap break-words">
-            {isContentReady && (
+            {isContentReady && ( // Display content if "unlocked" or never "locked"
               <>
                 {file.type === 'text' && <p>{displayedContent}</p>}
                 {file.type === 'link' && (
@@ -130,7 +129,7 @@ export function FilePreviewModal({ file, isOpen, setIsOpen }: FilePreviewModalPr
                 )}
                 {file.type === 'image' && displayedContent && (
                   <Image 
-                    src={displayedContent} // Use displayedContent which is URL for images
+                    src={displayedContent} 
                     alt={file.name} 
                     width={400} 
                     height={300} 
@@ -141,8 +140,11 @@ export function FilePreviewModal({ file, isOpen, setIsOpen }: FilePreviewModalPr
                 {(file.type === 'document' || file.type === 'video') && <p className="text-muted-foreground">{displayedContent}</p>}
               </>
             )}
-            {!isContentReady && file.isEncrypted && !decryptionError && (
-              <p className="text-muted-foreground text-center py-8">Enter password above to view encrypted content.</p>
+            {!isContentReady && file.isEncrypted && !unlockError && (
+              <p className="text-muted-foreground text-center py-8">Enter password above to view locked content.</p>
+            )}
+             {!isContentReady && file.isEncrypted && unlockError && (
+              <p className="text-destructive text-center py-8">{unlockError}</p>
             )}
           </div>
         </ScrollArea>

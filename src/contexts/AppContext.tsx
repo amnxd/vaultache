@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import React, { createContext, useState, useCallback, useEffect } from 'react';
 import type { FolderItem, FileItem, FileType } from '@/lib/types';
-import { encrypt as encryptText, decrypt as decryptText } from '@/lib/crypto';
+// crypto.ts is not used for content transformation anymore, but kept for potential other uses or if user wants actual crypto later.
 
 interface AppContextType {
   folders: FolderItem[];
@@ -19,9 +19,9 @@ interface AppContextType {
   getFilesForCurrentFolder: () => FileItem[];
   getSubfoldersForCurrentFolder: () => FolderItem[];
   getFolderPath: (folderId: string | null) => FolderItem[];
-  decryptFileContent: (file: FileItem, passwordAttempt: string) => string;
+  decryptFileContent: (file: FileItem, passwordAttempt: string) => string; // Conceptually: verifyPasswordAndGetContent
   toggleFolderOpen: (folderId: string) => void;
-  hasEncryptedFilesInFolderOrSubfolders: (folderId: string) => boolean; // Added
+  hasEncryptedFilesInFolderOrSubfolders: (folderId: string) => boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -77,23 +77,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const now = Date.now();
     const { encryptionPassword, ...restOfFileData } = fileData;
     
-    let encryptedContentVal: string | undefined = undefined;
-    let contentVal = restOfFileData.content;
+    let fileIsLocked = restOfFileData.isEncrypted;
+    let passwordForLock = encryptionPassword;
 
-    if (restOfFileData.isEncrypted && encryptionPassword) {
-      encryptedContentVal = encryptText(restOfFileData.content, encryptionPassword);
-      contentVal = (fileData.type === 'image' || fileData.type === 'document' || fileData.type === 'video') ? restOfFileData.content : ""; 
-    } else if (restOfFileData.isEncrypted && !encryptionPassword) {
-      console.warn("File marked for encryption but no password provided. Storing as unencrypted.");
-      restOfFileData.isEncrypted = false;
+    if (fileIsLocked && !passwordForLock) {
+      console.warn("File marked as locked but no password provided. Storing as unlocked.");
+      fileIsLocked = false;
+      passwordForLock = undefined;
     }
 
     const newFile: FileItem = {
       ...restOfFileData,
       id: crypto.randomUUID(),
-      content: contentVal,
-      encryptedContent: encryptedContentVal,
-      encryptionPassword: restOfFileData.isEncrypted ? encryptionPassword : undefined,
+      content: restOfFileData.content, // Content is always stored as is
+      isEncrypted: fileIsLocked, // Represents "locked" state
+      encryptionPassword: passwordForLock, // Password to unlock
+      encryptedContent: undefined, // Not used for content transformation in "locking" model
       createdAt: now,
       updatedAt: now,
     };
@@ -108,46 +107,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const { newContent, newEncryptionPassword, newIsEncrypted, ...otherUpdates } = updates;
         let updatedFile = { ...file, ...otherUpdates, updatedAt: Date.now() };
 
-        const isActuallyEncrypted = newIsEncrypted !== undefined ? newIsEncrypted : file.isEncrypted;
-        // Determine content to process based on newContent availability, otherwise use existing content.
-        // If the file type preserves plaintext content even when encrypted (image/doc/video URLs), use that as base if newContent isn't provided for encryption.
-        let contentToProcessForEncryption: string;
+        // Update content if newContent is provided
         if (newContent !== undefined) {
-            contentToProcessForEncryption = newContent;
-        } else if (file.type === 'image' || file.type === 'document' || file.type === 'video') {
-            // For these types, the 'content' field holds the URL/placeholder even if encrypted.
-            // If newContent isn't given, we re-encrypt the existing 'content'.
-            contentToProcessForEncryption = file.content;
-        } else {
-            // For text/link, if not encrypted, content is in file.content.
-            // If it was encrypted, file.content would be "", this case should be handled by requiring decryption first.
-            // This branch implies we're encrypting existing plaintext from file.content.
-            contentToProcessForEncryption = file.content;
+          updatedFile.content = newContent;
         }
 
+        const targetLockState = newIsEncrypted !== undefined ? newIsEncrypted : file.isEncrypted;
 
-        if (isActuallyEncrypted) {
-          const keyToUse = newEncryptionPassword !== undefined ? newEncryptionPassword : file.encryptionPassword;
-          if (!keyToUse) {
-            console.error("Cannot encrypt file without a password during update.");
-             updatedFile.isEncrypted = false; 
-             updatedFile.content = contentToProcessForEncryption; 
-             updatedFile.encryptedContent = undefined;
-             updatedFile.encryptionPassword = undefined;
+        if (targetLockState) { // File should be locked
+          const passwordToUse = newEncryptionPassword !== undefined ? newEncryptionPassword : file.encryptionPassword;
+          if (!passwordToUse) {
+            console.error("Cannot lock file without a password during update. Keeping it unlocked.");
+            updatedFile.isEncrypted = false;
+            updatedFile.encryptionPassword = undefined;
           } else {
-            updatedFile.encryptedContent = encryptText(contentToProcessForEncryption, keyToUse);
-            // For image, doc, video, keep the URL/placeholder in 'content'. For others, clear it.
-            updatedFile.content = (file.type === 'image' || file.type === 'document' || file.type === 'video') ? contentToProcessForEncryption : "";
             updatedFile.isEncrypted = true;
-            updatedFile.encryptionPassword = keyToUse; 
+            updatedFile.encryptionPassword = passwordToUse;
           }
-        } else { 
-          // Decrypting: newContent should be the plaintext. If not provided, it means keeping existing decrypted content.
-          updatedFile.content = newContent !== undefined ? newContent : file.content; 
+        } else { // File should be unlocked
           updatedFile.isEncrypted = false;
-          updatedFile.encryptedContent = undefined;
           updatedFile.encryptionPassword = undefined;
         }
+        
+        updatedFile.encryptedContent = undefined; // Not used for content transformation
+
         return updatedFile;
       })
     );
@@ -163,9 +146,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const deleteFolder = useCallback((folderId: string) => {
     let allFolderIdsToDelete: string[] = [folderId];
-    let currentParentIds = [folderId];
     
-    // Recursively find all subfolder IDs
     const findSubfolderIds = (parentId: string): string[] => {
         let ids: string[] = [];
         const children = folders.filter(f => f.parentId === parentId);
@@ -180,11 +161,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setFolders(prevFolders => prevFolders.filter(f => !allFolderIdsToDelete.includes(f.id)));
     
     setFiles(prevFiles => prevFiles.filter(f => {
-      if (f.folderId === null) return true; // Keep files in root if not explicitly deleted
+      if (f.folderId === null) return true;
       return !allFolderIdsToDelete.includes(f.folderId); 
     }));
 
-    // If current folder or one of its ancestors was deleted, navigate to its parent or root
     if (currentFolderId !== null && allFolderIdsToDelete.includes(currentFolderId)) {
       const originalFolder = folders.find(f => f.id === folderId); 
       setCurrentFolderIdInternal(originalFolder?.parentId || null);
@@ -220,27 +200,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [folders]);
 
   const decryptFileContent = useCallback((file: FileItem, passwordAttempt: string): string => {
-    if (!file.isEncrypted) {
+    // This function now verifies password for "locked" files, rather than decrypting content.
+    if (!file.isEncrypted) { // If not "locked"
       return file.content;
     }
+    // File is "locked"
     if (!passwordAttempt) {
-      return "[Encrypted - Password not provided for decryption]";
+      return "[Locked - Password not provided]";
     }
-    if (file.encryptedContent) {
-      try {
-        return decryptText(file.encryptedContent, passwordAttempt);
-      } catch (e) {
-        return "[Decryption Failed - Invalid password or corrupt data]";
-      }
+    if (file.encryptionPassword && passwordAttempt === file.encryptionPassword) {
+      return file.content; // Password matches, grant access to content
     }
-    // Fallback for encrypted image/doc/video where encryptedContent might not be primary store
-    if (file.type === 'image' || file.type === 'document' || file.type === 'video') {
-        if (file.encryptionPassword && passwordAttempt === file.encryptionPassword) {
-             return file.content || "[Encrypted - Placeholder content, password correct]";
-        }
-        return "[Decryption Failed - Invalid password for placeholder file]";
-    }
-    return "[Encrypted - Content unavailable or error in decryption logic]";
+    return "[Unlock Failed - Invalid password]";
   }, []);
 
   const toggleFolderOpen = useCallback((folderId: string) => {
@@ -254,7 +225,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const hasEncryptedFilesInFolderOrSubfolders = useCallback((folderId: string): boolean => {
     const checkRecursively = (currentFolderId: string): boolean => {
         const filesInThisFolder = files.filter(file => file.folderId === currentFolderId);
-        if (filesInThisFolder.some(file => file.isEncrypted)) {
+        if (filesInThisFolder.some(file => file.isEncrypted)) { // Checks for "locked" files
             return true;
         }
 
@@ -287,7 +258,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       getFolderPath,
       decryptFileContent,
       toggleFolderOpen,
-      hasEncryptedFilesInFolderOrSubfolders, // Expose the new function
+      hasEncryptedFilesInFolderOrSubfolders,
     }}>
       {children}
     </AppContext.Provider>

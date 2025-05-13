@@ -36,8 +36,8 @@ export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
   const [fileType, setFileType] = useState<FileType>('text');
   const [fileContent, setFileContent] = useState('');
   const [tags, setTags] = useState<string[]>([]);
-  const [isEncrypted, setIsEncrypted] = useState(false);
-  const [encryptionPassword, setEncryptionPassword] = useState('');
+  const [isEncrypted, setIsEncrypted] = useState(false); // Represents "locked" state
+  const [encryptionPassword, setEncryptionPassword] = useState(''); // Password for "locking"
   const [isSuggestingTags, setIsSuggestingTags] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
@@ -94,28 +94,28 @@ export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
       return;
     }
     if (isEncrypted && !encryptionPassword.trim()) {
-      toast({ title: "Password is required for encrypted files.", variant: "destructive"});
+      toast({ title: "Password is required for locked files.", variant: "destructive"}); // Changed "encrypted" to "locked"
       return;
     }
     
     let finalContent = fileContent;
     if (fileType === 'image') {
-      finalContent = `https://picsum.photos/seed/${Date.now()}/400/300`; 
+      finalContent = fileContent || `https://picsum.photos/seed/${Date.now()}/400/300`; 
     } else if (fileType === 'document') {
-      finalContent = `This is a placeholder for the document named "${fileName}". Actual content not stored in this demo.`;
+      finalContent = fileContent || `This is a placeholder for the document named "${fileName}". Actual content not stored in this demo.`;
     } else if (fileType === 'video') {
-      finalContent = `This is a placeholder for the video named "${fileName}". Actual content not stored in this demo.`;
+      finalContent = fileContent || `This is a placeholder for the video named "${fileName}". Actual content not stored in this demo.`;
     }
 
 
     const newFileData: Omit<FileItem, 'id' | 'createdAt' | 'updatedAt' | 'encryptedContent'> & { encryptionPassword?: string } = {
       name: fileName.trim(),
       type: fileType,
-      content: finalContent,
+      content: finalContent, // Content is stored as is
       tags,
       folderId: currentFolderId,
-      isEncrypted,
-      encryptionPassword: isEncrypted ? encryptionPassword : undefined,
+      isEncrypted, // Represents "locked" state
+      encryptionPassword: isEncrypted ? encryptionPassword : undefined, // Password to "unlock"
     };
     addFile(newFileData);
     toast({ title: `File "${newFileData.name}" added successfully.`});
@@ -133,7 +133,7 @@ export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
             Add New File
           </DialogTitle>
           <DialogDescription>
-            Store your texts, images, documents, links, or videos securely. Encrypt if needed.
+            Store your texts, images, documents, links, or videos. Lock if needed.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto space-y-4 p-2 md:p-4">
@@ -157,10 +157,10 @@ export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="text">Text</SelectItem>
-                <SelectItem value="image">Image (Placeholder)</SelectItem>
-                <SelectItem value="document">Document (Placeholder)</SelectItem>
+                <SelectItem value="image">Image</SelectItem>
+                <SelectItem value="document">Document</SelectItem>
                 <SelectItem value="link">Link</SelectItem>
-                <SelectItem value="video">Video (Placeholder)</SelectItem>
+                <SelectItem value="video">Video</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -179,19 +179,45 @@ export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
             </div>
           )}
            {fileType === 'image' && (
-            <p className="text-sm text-muted-foreground p-2 border rounded-md bg-secondary/30">
-              A placeholder image will be used. Actual image uploads are not supported in this demo.
-            </p>
+             <div>
+               <Label htmlFor="fileContent">Image URL (Optional)</Label>
+               <Input
+                 id="fileContent"
+                 value={fileContent}
+                 onChange={(e) => setFileContent(e.target.value)}
+                 placeholder="e.g., https://picsum.photos/400/300 or leave blank for default"
+                 className="mt-1"
+               />
+               <p className="text-xs text-muted-foreground mt-1">If left blank, a default placeholder image will be used.</p>
+             </div>
            )}
            {fileType === 'document' && (
-            <p className="text-sm text-muted-foreground p-2 border rounded-md bg-secondary/30">
-              A placeholder document will be created. Actual document uploads are not supported in this demo.
-            </p>
+             <div>
+                <Label htmlFor="fileContent">Document Content (Optional Placeholder)</Label>
+                <Textarea
+                    id="fileContent"
+                    value={fileContent}
+                    onChange={(e) => setFileContent(e.target.value)}
+                    placeholder={`Placeholder for document "${fileName|| "untitled"}"...`}
+                    rows={3}
+                    className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Actual document uploads are not supported. This is a placeholder.</p>
+            </div>
            )}
             {fileType === 'video' && (
-            <p className="text-sm text-muted-foreground p-2 border rounded-md bg-secondary/30">
-              A placeholder video will be created. Actual video uploads are not supported in this demo.
-            </p>
+              <div>
+                <Label htmlFor="fileContent">Video URL or Placeholder (Optional)</Label>
+                <Textarea
+                    id="fileContent"
+                    value={fileContent}
+                    onChange={(e) => setFileContent(e.target.value)}
+                    placeholder={`Placeholder for video "${fileName || "untitled"}"... or a URL`}
+                    rows={3}
+                    className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Actual video uploads are not supported. This is a placeholder or link.</p>
+              </div>
            )}
 
           <TagInput tags={tags} setTags={setTags} />
@@ -216,25 +242,25 @@ export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
 
           <div className="flex items-center space-x-2 mt-4">
             <Checkbox
-              id="isEncrypted"
+              id="isEncrypted" // Represents "locked" state
               checked={isEncrypted}
               onCheckedChange={(checked) => {
                 setIsEncrypted(Boolean(checked));
-                if (!checked) setEncryptionPassword(''); // Clear password if unchecking
+                if (!checked) setEncryptionPassword(''); 
               }}
             />
             <Label htmlFor="isEncrypted" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-              Encrypt this file
+              Lock this file (requires password)
             </Label>
           </div>
 
           {isEncrypted && (
             <div className="mt-2 space-y-1">
-              <Label htmlFor="encryptionPassword">Encryption Password</Label>
+              <Label htmlFor="encryptionPassword">Password to Lock/Unlock File</Label>
               <div className="relative">
                 <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  id="encryptionPassword"
+                  id="encryptionPassword" // Password for "locking"
                   type="password"
                   value={encryptionPassword}
                   onChange={(e) => setEncryptionPassword(e.target.value)}
@@ -260,4 +286,3 @@ export function AddFileDialog({ isOpen, setIsOpen }: AddFileDialogProps) {
     </Dialog>
   );
 }
-
