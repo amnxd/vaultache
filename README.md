@@ -1,6 +1,6 @@
 # Vaultache
 
-A secure and user-friendly application for storaging and managing your data (or secrets).
+A secure and user-friendly application for storaging and managing your data (or secrets)..
 
 ## Getting Started
 
